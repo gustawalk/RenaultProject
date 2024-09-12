@@ -258,6 +258,10 @@ class JanelaProximaTela(tk.Toplevel):
 
         Button(self, text="Confirmar", command=self.confirmar_tela).pack()
 
+        self.transient(self.parent)
+        self.grab_set()
+        self.parent.wait_window(self)
+
     def confirmar_tela(self):
             tela = self.lb_telas.get(ACTIVE)
             self.nova_tela(tela)
@@ -280,6 +284,10 @@ class JanelaRemoverRisco(tk.Toplevel):
         self.parent = parent
 
         self.show_first_window()
+
+        self.transient(self.parent)
+        self.grab_set()
+        self.parent.wait_window(self)
 
     def show_first_window(self):
         conn = create_connection()
@@ -412,6 +420,10 @@ class JanelaAddRisco(tk.Toplevel):
         self.botaoAdicionarRisco = tk.Button(self, text="Adicionar", command=self.adicionarRisco)
         self.botaoAdicionarRisco.pack(pady=10)
 
+        self.transient(self.parent)
+        self.grab_set()
+        self.parent.wait_window(self)
+
     def adicionarRisco(self):
         objetivo_marcado = self.lb_objetivos.get(ACTIVE)
         novo_risco = self.entryRisco.get()
@@ -479,6 +491,10 @@ class JanelaRemoverObjetivo(tk.Toplevel):
 
         Button(self, text="Remover Objetivo", command=self.remove_objetivo).pack()
 
+        self.transient(self.parent)
+        self.grab_set()
+        self.parent.wait_window(self)
+
     def remove_objetivo(self):
         objetivo_to_remove = self.lb_objetivos_remove.get(ACTIVE)
 
@@ -523,6 +539,10 @@ class JanelaAddObjetivo(tk.Toplevel):
 
         self.botaoAdicionar = tk.Button(self, text="Adicionar", command=self.adicionarObjetivo)
         self.botaoAdicionar.pack(pady=10)
+
+        self.transient(self.parent)
+        self.grab_set()
+        self.parent.wait_window(self)
 
     def adicionarObjetivo(self):
         novoObjetivo = self.entryObjetivo.get()
