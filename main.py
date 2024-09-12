@@ -238,8 +238,7 @@ class telaObjetivos(tk.Tk):
         self.ticados = []
         self.atualizaObjetivos()
         JanelaProximaTela(self)
-
-        
+ 
 class JanelaProximaTela(tk.Toplevel):
     def __init__(self, parent):
         super().__init__(parent)
@@ -274,7 +273,6 @@ class JanelaProximaTela(tk.Toplevel):
         elif tela.lower() == "matriz de risco":
             telaMatriz(self.parent.ticados_id)
         
-
 class JanelaRemoverRisco(tk.Toplevel):
     def __init__(self, parent):
         super().__init__(parent)
@@ -628,6 +626,9 @@ class telaMatriz(tk.Tk):
 
         i = 0
         for i, risco in enumerate(all_risk_table):
+            if len(risco) >= 18:
+                risco = risco[:18]
+                risco+="..."
             Label(self.page_frame, text=risco).place(x=self.window_width/2 - 130, y=75 + (i * 50))
 
             impacto_entry = tk.Entry(self.page_frame, width=3)
