@@ -2,6 +2,11 @@ import tkinter as tk
 from tkinter import *
 from tkinter import messagebox
 import mysql.connector
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+from matplotlib.colors import ListedColormap, BoundaryNorm
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 
 def show_custom_messagebox(root, title, message, geometry=("300x150")):
     # Cria uma nova janela de diálogo
@@ -268,9 +273,9 @@ class JanelaProximaTela(tk.Toplevel):
     def nova_tela(self, tela):
         self.parent.destroy()
 
-        if tela.lower() == "ahp":
+        if tela.lower().replace(' ', '') == "ahp":
             telaPeso(self.parent.ticados_id)
-        elif tela.lower() == "matriz de risco":
+        elif tela.lower().replace(' ', '') == "matrizderisco":
             telaMatriz(self.parent.ticados_id)
         
 class JanelaRemoverRisco(tk.Toplevel):
@@ -678,12 +683,15 @@ class telaMatriz(tk.Tk):
                 conn.close()
                 return
 
-            fullstr += f"UPDATE impacto_probabilidade SET impacto = {impacto}, probabilidade = {probabilidade}, nivel = {int(impacto)*int(probabilidade)} WHERE nome_risco_origem = '{risco}' AND id_objetivo_origem = {self.objetivo_id}; commit; "
-            
-        cursor.execute(fullstr)
-        conn.close()
+            cursor.execute(f"UPDATE impacto_probabilidade SET impacto = {impacto}, probabilidade = {probabilidade} WHERE nome_risco_origem = '{risco}' AND id_objetivo_origem = {self.objetivo_id};")
+            conn.commit()
 
-        show_custom_messagebox(self, "Finalizado", "Tudo foi atualizado!")
+        conn.close()
+        
+        self.montar_matriz()
+
+    def montar_matriz(self):
+        MatrizMontada(self.objetivo_id)
         self.destroy()
 
     def check_values(self, value):
@@ -902,6 +910,83 @@ class telaPeso(tk.Tk):
         self.update_database()
         # Próxima página
         messagebox.showinfo("showinfo", "Próxima pagina!")
+        self.destroy()
+
+class MatrizMontada(tk.Tk):
+    def __init__(self, id_objetivo):
+        super().__init__()
+
+        self.resizable(False, False)
+        self.title("Matriz")
+
+        # Configura o fechamento correto do programa
+        self.protocol("WM_DELETE_WINDOW", self.on_closing)
+
+        # Criar uma matriz para armazenar os valores de impacto * probabilidade
+        matriz_risco = np.zeros((5, 5), dtype=int)
+
+        # Preencher a matriz com os valores de impacto * probabilidade
+        for i in range(1, 6):
+            for j in range(1, 6):
+                matriz_risco[i-1, j-1] = i * j
+
+        # Criar uma matriz de strings para armazenar os nomes dos riscos
+        matriz_riscos_nomes = np.full((5, 5), '', dtype=object)
+        
+        conn = create_connection()
+        cursor = conn.cursor()
+        cursor.execute(f"SELECT nome_risco_origem, impacto, probabilidade FROM impacto_probabilidade WHERE id_objetivo_origem = {id_objetivo}")
+        riscos = cursor.fetchall()
+        conn.close()
+
+        print(riscos)
+
+        # Popula a matriz com os nomes dos riscos (concatenando caso mais de um risco caia na mesma célula)
+        for risco, probabilidade, impacto in riscos:
+            if matriz_riscos_nomes[probabilidade-1, impacto-1] == '':
+                matriz_riscos_nomes[probabilidade-1, impacto-1] = risco
+            else:
+                matriz_riscos_nomes[probabilidade-1, impacto-1] += f', {risco}'
+
+        # Definir o colormap personalizado (verde, amarelo, vermelho)
+        colors = ["green", "yellow", "red"]
+        cmap = ListedColormap(colors)
+
+        # Definir os limites para cada faixa de cores
+        bounds = [1, 5, 15, 25]
+        norm = BoundaryNorm(bounds, cmap.N)
+
+        # Configuração da visualização
+        teste = plt.figure(figsize=(8, 6))
+        ax = sns.heatmap(matriz_risco, annot=True, fmt="d", cmap=cmap, norm=norm, cbar=True, linewidths=0.5)
+
+        # Adicionar os nomes dos riscos diretamente nas células, se houver risco
+        for i in range(matriz_risco.shape[0]):
+            for j in range(matriz_risco.shape[1]):
+                if matriz_riscos_nomes[i, j] != '':  # Só exibe se houver risco
+                    ax.text(j + 0.5, i + 0.35, f'{matriz_riscos_nomes[i, j]}', 
+                            ha='center', va='bottom', color='black', fontsize=8)
+
+        # Ajuste dos rótulos dos eixos para iniciar em 1
+        ax.set_xticklabels([1, 2, 3, 4, 5])
+        ax.set_yticklabels([1, 2, 3, 4, 5])
+
+        plt.title('Matriz de Risco')
+        plt.xlabel('Impacto')
+        plt.ylabel('Probabilidade')
+
+        canvas = FigureCanvasTkAgg(teste, master=self)
+        canvas.get_tk_widget().pack()
+
+        toolbar = NavigationToolbar2Tk(canvas, self, pack_toolbar=False)
+        toolbar.update()
+        toolbar.pack(anchor="w", fill=tk.X)
+
+        Button(self, text="Fechar tela", command=self.on_closing).pack(anchor="se")
+
+    def on_closing(self):
+        # Limpa recursos e fecha a janela
+        self.quit()
         self.destroy()
 
 if __name__ == "__main__":
