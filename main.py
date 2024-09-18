@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from matplotlib.colors import ListedColormap, BoundaryNorm
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
+from functools import partial
 
 def show_custom_messagebox(root, title, message, geometry=("300x150")):
     # Cria uma nova janela de diálogo
@@ -201,11 +202,6 @@ class telaObjetivos(tk.Tk):
 
     def excluiResto(self):
         self.ticados = [objetivo for objetivo, taTicado in zip(self.objetivos, self.ticados) if taTicado.get()]
-
-        if len(self.ticados) != 1:
-            self.atualizaObjetivos()
-            show_custom_messagebox(self, "Erro", "Selecione apenas um objetivo")
-            return
 
         self.ticados_id = []
     
@@ -599,8 +595,12 @@ class telaMatriz(tk.Tk):
         self.window_height = 600
         self.window_width = 800
         self.geometry(f"{self.window_width}x{self.window_height}")
+        
+        self.objetivos = objetivos_id
 
-        self.objetivo_id = objetivos_id[0]
+        self.page = 0
+
+        self.objetivo_id = self.objetivos[self.page]
 
         self.entries = {}
 
@@ -648,22 +648,32 @@ class telaMatriz(tk.Tk):
 
             i += 1
 
-        Button(self.page_frame, text="Montar Matriz", command=self.update_info_in_bd).pack(side=tk.BOTTOM, anchor=tk.SE, padx=10, pady=10)
+        if self.page < len(self.objetivos)-1:
+            Button(self.page_frame, text="Next", command=self.next_page).pack(side=tk.BOTTOM, anchor=tk.SE, padx=10, pady=10)
+
+        if self.page > 0:
+            Button(self.page_frame, text="Previous", command=self.previous_page).pack(side=tk.BOTTOM, anchor=tk.SW, padx=10, pady=10)
+
+        if self.page == len(self.objetivos)-1:
+            Button(self.page_frame, text="Montar Matriz", command=self.last_page).pack(side=tk.BOTTOM, anchor=tk.SE, padx=10, pady=10)
 
         Button(self.page_frame, text="Help", command=self.show_help_info).place(x=self.window_width/2 - 20, y=self.window_height - 45)
 
-        Button(self.page_frame, text="Home", command=self.back_home).place(x=15, y=self.window_height - 45)
+        if self.page == 0:
+            Button(self.page_frame, text="Home", command=self.back_home).place(x=15, y=self.window_height - 45)
 
     def back_home(self):
         self.destroy()
         telaObjetivos()
 
+    def last_page(self):
+        self.update_info_in_bd()
+        self.montar_matriz()
+
     def update_info_in_bd(self):
 
         conn = create_connection()
         cursor = conn.cursor()
-
-        fullstr = ""
 
         for risco, (impacto_entry, probabilidade_entry) in self.entries.items():
 
@@ -673,7 +683,7 @@ class telaMatriz(tk.Tk):
             if not (impacto_text.isdigit() and probabilidade_text.isdigit()):
                 show_custom_messagebox(self, "Erro", "As entradas precisam ser números inteiros", "300x100")
                 conn.close()
-                return
+                return False
 
             impacto = int(impacto_entry.get())
             probabilidade = int(probabilidade_entry.get())
@@ -681,17 +691,36 @@ class telaMatriz(tk.Tk):
             if not self.check_values(impacto) or not self.check_values(probabilidade):
                 show_custom_messagebox(self, "Erro", "Entradas inválidas", "300x100")
                 conn.close()
-                return
+                return False
 
             cursor.execute(f"UPDATE impacto_probabilidade SET impacto = {impacto}, probabilidade = {probabilidade} WHERE nome_risco_origem = '{risco}' AND id_objetivo_origem = {self.objetivo_id};")
             conn.commit()
 
         conn.close()
-        
-        self.montar_matriz()
+
+    def next_page(self):
+        if self.update_info_in_bd() != False:
+            self.update_info_in_bd()
+            self.page += 1
+            self.objetivo_id = self.objetivos[self.page]
+            self.clear_window()
+            self.show_info()
+
+    def previous_page(self):
+        if self.update_info_in_bd() != False:
+            self.update_info_in_bd()
+            self.page -= 1
+            self.objetivo_id = self.objetivos[self.page]
+            self.clear_window()
+            self.show_info()
+
+
+    def clear_window(self):
+        for widget in self.winfo_children():
+            widget.destroy()
 
     def montar_matriz(self):
-        MatrizMontada(self.objetivo_id)
+        MatrizMontada(self.objetivos)
         self.destroy()
 
     def check_values(self, value):
@@ -913,12 +942,19 @@ class telaPeso(tk.Tk):
         self.destroy()
 
 class MatrizMontada(tk.Tk):
-    def __init__(self, id_objetivo):
+    def __init__(self, objetivos):
         super().__init__()
 
         self.resizable(False, False)
         self.title("Matriz")
 
+        self.id_objetivos = objetivos
+
+        self.id_objetivo = self.id_objetivos[0]
+
+        self.show_matrix(self.id_objetivo)
+
+    def show_matrix(self, id_obj):
         # Configura o fechamento correto do programa
         self.protocol("WM_DELETE_WINDOW", self.on_closing)
 
@@ -935,11 +971,13 @@ class MatrizMontada(tk.Tk):
         
         conn = create_connection()
         cursor = conn.cursor()
-        cursor.execute(f"SELECT nome_risco_origem, impacto, probabilidade FROM impacto_probabilidade WHERE id_objetivo_origem = {id_objetivo}")
+        cursor.execute(f"SELECT nome_risco_origem, impacto, probabilidade FROM impacto_probabilidade WHERE id_objetivo_origem = {id_obj}")
         riscos = cursor.fetchall()
+        cursor.execute(f"SELECT nome_objetivo FROM objetivos WHERE id in {tuple(self.id_objetivos)}")
+        objetivos = cursor.fetchall()
+        cursor.execute(f"SELECT nome_objetivo FROM objetivos WHERE id = {id_obj}")
+        nome_obj = cursor.fetchall()
         conn.close()
-
-        print(riscos)
 
         # Popula a matriz com os nomes dos riscos (concatenando caso mais de um risco caia na mesma célula)
         for risco, probabilidade, impacto in riscos:
@@ -971,7 +1009,7 @@ class MatrizMontada(tk.Tk):
         ax.set_xticklabels([1, 2, 3, 4, 5])
         ax.set_yticklabels([1, 2, 3, 4, 5])
 
-        plt.title('Matriz de Risco')
+        plt.title('Matriz de Risco - ' + str(convert_to_str(nome_obj)))
         plt.xlabel('Impacto')
         plt.ylabel('Probabilidade')
 
@@ -982,12 +1020,21 @@ class MatrizMontada(tk.Tk):
         toolbar.update()
         toolbar.pack(anchor="w", fill=tk.X)
 
-        Button(self, text="Fechar tela", command=self.on_closing).pack(anchor="se")
+        for i in range(len(self.id_objetivos)):
+            Button(self, text=objetivos[i][0], command=partial(self.change_matrix, self.id_objetivos[i])).pack(side=tk.LEFT)
+
+    def change_matrix(self, id):
+        self.clear_window()
+        self.show_matrix(id)
 
     def on_closing(self):
         # Limpa recursos e fecha a janela
         self.quit()
         self.destroy()
+
+    def clear_window(self):
+        for widget in self.winfo_children():
+            widget.destroy()
 
 if __name__ == "__main__":
     create_tables()
