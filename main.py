@@ -973,7 +973,12 @@ class MatrizMontada(tk.Tk):
         cursor = conn.cursor()
         cursor.execute(f"SELECT nome_risco_origem, impacto, probabilidade FROM impacto_probabilidade WHERE id_objetivo_origem = {id_obj}")
         riscos = cursor.fetchall()
-        cursor.execute(f"SELECT nome_objetivo FROM objetivos WHERE id in {tuple(self.id_objetivos)}")
+        tupla_id = tuple(self.id_objetivos)
+
+        if len(tupla_id) == 1:
+            tupla_id = f"({id_obj})"
+
+        cursor.execute(f"SELECT nome_objetivo FROM objetivos WHERE id in {tupla_id}")
         objetivos = cursor.fetchall()
         cursor.execute(f"SELECT nome_objetivo FROM objetivos WHERE id = {id_obj}")
         nome_obj = cursor.fetchall()
