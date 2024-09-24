@@ -936,6 +936,12 @@ class telaPeso(tk.Tk):
         return value in range_aceito
 
     def finish_settings(self):
+        dados = self.get_entries_values()
+
+        for valor in dados.values():
+            if self.check_values(valor) == False:
+                messagebox.showwarning("showwarning", "Dados incorretos")
+                return
         self.update_database()
         # Próxima página
         messagebox.showinfo("showinfo", "Próxima pagina!")
