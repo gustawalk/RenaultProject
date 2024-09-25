@@ -46,6 +46,11 @@ def convert_tuplelist_to_array(tuple_list, index=0):
 
     return result_array
 
+def convert_tuplelist_to_dict(tuple_list):
+    # Usa dict comprehension para converter a lista de tuplas em dicionário
+    dicionario = {chave: valor for chave, valor in tuple_list}
+    return dicionario
+
 def convert_to_int(tuple_list):
     #Conversor de tupla de 1 digito em int ex: (2,) 🠞 2 (int)
     if len(tuple_list) == 1 and len(tuple_list[0]) == 1:
@@ -70,11 +75,14 @@ def default_values_column(id_objetivo):
     try:
         conn = create_connection()
         with conn.cursor() as cursor:
-            for i in range(3):
-                cursor.execute(f"INSERT INTO riscos (nome_risco, id_objetivo_origem) VALUES ('risco{i}', {id_objetivo})")
+            riscos = ['Relações de negócios', 'ESG', 'TI', 'Finanças', 'Produção']
+
+            for risco in riscos:
+                cursor.execute(f"INSERT INTO riscos (nome_risco, id_objetivo_origem) VALUES ('{risco}', {id_objetivo})")
                 conn.commit()
-                cursor.execute(f"INSERT INTO impacto_probabilidade (id_objetivo_origem, nome_risco_origem, impacto, probabilidade, nivel) VALUES ({id_objetivo}, 'risco{i}', 0, 0, 0)")  
-                conn.commit()    
+                
+                cursor.execute(f"INSERT INTO impacto_probabilidade (id_objetivo_origem, nome_risco_origem, impacto, probabilidade, nivel) VALUES ({id_objetivo}, '{risco}', 0, 0, 0)")
+                conn.commit()
 
     except Exception as e:
         print(f"Erro ao executar a consulta: {e}")
@@ -204,7 +212,12 @@ class telaObjetivos(tk.Tk):
         self.ticados = [objetivo for objetivo, taTicado in zip(self.objetivos, self.ticados) if taTicado.get()]
 
         self.ticados_id = []
-    
+
+        if len(self.ticados) == 0:
+            show_custom_messagebox(self, "Erro", "Selecione ao menos um objetivo", "300x100")
+            self.atualizaObjetivos()
+            return
+
         infos = []
 
         for tick in self.ticados:
@@ -828,6 +841,17 @@ class telaPeso(tk.Tk):
             peso = pesos_lista.get(combinacao, 1)
 
             risco1, risco2 = combinacao.split('X')
+
+            lim = 12
+
+            if len(risco1) >= lim:
+                risco1 = risco1[:lim]
+                risco1+="..."
+
+            if len(risco2) >= lim:
+                risco2 = risco2[:lim]
+                risco2+="..."
+
             tk.Label(self.page_frame, text=risco1).place(x=self.window_width/2 - 100, y=10 + (i * 50))
             
             entry = tk.Entry(self.page_frame, width=3)
@@ -926,7 +950,8 @@ class telaPeso(tk.Tk):
         cursor = conn.cursor()
         full_query = ""
         for key, value in values.items():
-            full_query += f"UPDATE pesos SET peso_combinacao = {value} WHERE nome_combinacao = '{key}' AND id_objetivo_origem = {self.objetivos_id[self.current_page - 1]}; commit; "
+            full_query += f"UPDATE pesos SET peso_combinacao = {value} WHERE nome_combinacao = '{key}' AND id_objetivo_origem = {self.objetivos_id[self.current_page - 1]};"
+        full_query += " commit;"
         cursor.execute(full_query)
         conn.close()
         return
@@ -943,8 +968,11 @@ class telaPeso(tk.Tk):
                 messagebox.showwarning("showwarning", "Dados incorretos")
                 return
         self.update_database()
-        # Próxima página
-        messagebox.showinfo("showinfo", "Próxima pagina!")
+        
+        self.montar_ahp()
+
+    def montar_ahp(self):
+        AhpMontado(self.objetivos_id)
         self.destroy()
 
 class MatrizMontada(tk.Tk):
@@ -1006,7 +1034,7 @@ class MatrizMontada(tk.Tk):
         norm = BoundaryNorm(bounds, cmap.N)
 
         # Configuração da visualização
-        teste = plt.figure(figsize=(8, 6))
+        fig = plt.figure(figsize=(8, 6))
         ax = sns.heatmap(matriz_risco, annot=True, fmt="d", cmap=cmap, norm=norm, cbar=True, linewidths=0.5)
 
         # Adicionar os nomes dos riscos diretamente nas células, se houver risco
@@ -1024,7 +1052,7 @@ class MatrizMontada(tk.Tk):
         plt.xlabel('Impacto')
         plt.ylabel('Probabilidade')
 
-        canvas = FigureCanvasTkAgg(teste, master=self)
+        canvas = FigureCanvasTkAgg(fig, master=self)
         canvas.get_tk_widget().pack()
 
         toolbar = NavigationToolbar2Tk(canvas, self, pack_toolbar=False)
@@ -1035,8 +1063,133 @@ class MatrizMontada(tk.Tk):
             Button(self, text=objetivos[i][0], command=partial(self.change_matrix, self.id_objetivos[i])).pack(side=tk.LEFT)
 
     def change_matrix(self, id):
+        
+        plt.close()
         self.clear_window()
         self.show_matrix(id)
+
+    def on_closing(self):
+        # Limpa recursos e fecha a janela
+        self.quit()
+        self.destroy()
+
+    def clear_window(self):
+        for widget in self.winfo_children():
+            widget.destroy()
+
+class AhpMontado(tk.Tk):
+    def __init__(self, objetivos):
+        super().__init__()
+        self.resizable(False, False)
+        self.title("AHP")
+        self.objetivos = objetivos
+        self.id_objetivo = objetivos[0]
+
+        conn = create_connection()
+        cursor = conn.cursor()
+
+        tupla_id = tuple(self.objetivos)
+
+        if len(tupla_id) == 1:
+            tupla_id = f"({self.objetivos[0]})"
+
+        cursor.execute(f"SELECT nome_objetivo FROM objetivos WHERE id in {tupla_id}")
+        self.objetivos_response = cursor.fetchall()
+        cursor.close()
+
+        self.show_page(self.id_objetivo)
+
+    # Função para criar o gráfico de radar
+    def criar_grafico_radar(self, valores, categorias, objetivo):
+        # Número de categorias
+        N = len(categorias)
+        
+        # Ângulo para cada eixo
+        angles = np.linspace(0, 2 * np.pi, N, endpoint=False).tolist()
+        
+        # Fechar o gráfico
+        valores = np.concatenate((valores, [valores[0]]))
+        angles += angles[:1]
+        
+        # Criar o gráfico
+        fig, ax = plt.subplots(figsize=(8, 8), subplot_kw=dict(polar=True))  # Aumentar o tamanho do gráfico
+
+        # Desenhar uma grade com labels em negrito
+        ax.fill(angles, valores, color='blue', alpha=0.25)
+        ax.plot(angles, valores, color='blue', linewidth=2)
+
+        # Adicionar rótulos
+        ax.set_yticklabels([])
+        ax.set_xticks(angles[:-1])
+        
+        # Ajustar o espaçamento dos rótulos
+        ax.set_xticklabels(categorias, fontsize=12, fontweight='bold', ha='center', rotation=45)
+
+        # Adicionar título
+        plt.title(objetivo, size=15, color='black', y=1.1)
+
+        # Melhorar estética com grid de fundo
+        ax.spines['polar'].set_visible(False)
+        ax.grid(color='gray', linestyle=':', linewidth=0.5)
+
+        # Ajustar layout para melhor responsividade
+        plt.tight_layout()
+
+        canvas = FigureCanvasTkAgg(fig, master=self)
+        canvas.get_tk_widget().pack()
+
+    def show_page(self, id):
+        
+        self.protocol("WM_DELETE_WINDOW", self.on_closing)
+
+        conn = create_connection()
+        cursor = conn.cursor()
+        cursor.execute(f"SELECT nome_objetivo FROM objetivos WHERE id = {id}")
+        objetivo_response = cursor.fetchall()
+        cursor.execute(f"SELECT nome_risco FROM riscos WHERE id_objetivo_origem = {id}")
+        riscos_response = cursor.fetchall()
+        cursor.execute(f"SELECT nome_combinacao, peso_combinacao FROM pesos WHERE id_objetivo_origem = {id}")
+        pesos_response = cursor.fetchall()
+        conn.close()
+
+        objetivo = convert_to_str(objetivo_response)
+        riscos = convert_tuplelist_to_array(riscos_response)
+        pesos_resp = convert_tuplelist_to_dict(pesos_response)
+
+        n = len(riscos)
+
+        matriz = np.ones((n, n))
+
+        control = 0
+        for i in range(n):
+            for j in range(i+1, n):
+                _, value = list(pesos_resp.items())[control]
+                
+                matriz[i, j] = value
+                matriz[j, i] = 1/value
+                control += 1
+
+        matrizNormalizada = self.normalizaMatriz(matriz)
+        peso = self.calculaPeso(matriz)
+
+        self.criar_grafico_radar(peso, riscos, objetivo)
+
+        for i in range(len(self.objetivos)):
+            Button(self, text=self.objetivos_response[i][0], command=partial(self.change_ahp, self.objetivos[i])).pack(side=tk.LEFT)
+    
+    def change_ahp(self, id):
+        plt.close()
+        self.clear_window()
+        self.show_page(id)
+
+    #normalizando as matrizes(dividindo cada valor pela soma da coluna(tipo um mmc) serve pra calcular os pesos)
+    def normalizaMatriz(self, matriz):
+        somaColunas = np.sum(matriz, axis=0)
+        return matriz / somaColunas
+
+    #calculando os pesos(a soma de cada linha tem que dar 1)
+    def calculaPeso(self, matrizNormalizada):
+        return matrizNormalizada.mean(axis=1)
 
     def on_closing(self):
         # Limpa recursos e fecha a janela
