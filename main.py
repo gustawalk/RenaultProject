@@ -680,8 +680,9 @@ class telaMatriz(tk.Tk):
         telaObjetivos()
 
     def last_page(self):
-        self.update_info_in_bd()
-        self.montar_matriz()
+        if self.update_info_in_bd() != False:
+            self.update_info_in_bd()
+            self.montar_matriz()
 
     def update_info_in_bd(self):
 
