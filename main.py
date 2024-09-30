@@ -1,30 +1,32 @@
 import tkinter as tk
 from tkinter import *
+from PIL import Image, ImageTk  # Certifique-se de ter a biblioteca Pillow instalada
 from tkinter import messagebox
 import mysql.connector
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 from matplotlib.colors import ListedColormap, BoundaryNorm
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from matplotlib.backends._backend_tk import NavigationToolbar2Tk
 from functools import partial
 
 def show_custom_messagebox(root, title, message, geometry=("300x150")):
     # Cria uma nova janela de diálogo
     dialog = tk.Toplevel(root)
     dialog.title(title)
-    
+
     # Define o tamanho inicial da janela
     dialog.geometry(geometry)
-    
+
     # Adiciona uma label para a mensagem
     label = tk.Label(dialog, text=message, wraplength=400)
     label.pack(padx=10, pady=10)
-    
+
     # Adiciona um botão para fechar a janela
     button = tk.Button(dialog, text="OK", command=dialog.destroy)
     button.pack(pady=(0, 10))
-    
+
     # Faz a janela modal, bloqueando a interação com a janela principal
     dialog.transient(root)
     dialog.grab_set()
@@ -80,7 +82,7 @@ def default_values_column(id_objetivo):
             for risco in riscos:
                 cursor.execute(f"INSERT INTO riscos (nome_risco, id_objetivo_origem) VALUES ('{risco}', {id_objetivo})")
                 conn.commit()
-                
+
                 cursor.execute(f"INSERT INTO impacto_probabilidade (id_objetivo_origem, nome_risco_origem, impacto, probabilidade, nivel) VALUES ({id_objetivo}, '{risco}', 0, 0, 0)")
                 conn.commit()
 
@@ -118,7 +120,7 @@ def create_tables():
             `peso_combinacao` int NOT NULL,
             `id_objetivo_origem` int DEFAULT NULL,
             PRIMARY KEY (`id`)
-        ) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;              
+        ) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
     ''')
     conn.commit()
     cursor.execute('''
@@ -140,7 +142,7 @@ class telaObjetivos(tk.Tk):
         self.title("Objetivos")
         self.geometry("800x600")
         self.resizable(False, False)
-        
+
         self.frameObjetivos = tk.Frame(self)
         self.frameObjetivos.pack(expand=True)
 
@@ -203,7 +205,7 @@ class telaObjetivos(tk.Tk):
     def adicionaObjetivo(self):
         JanelaAddObjetivo(self)
         self.atualizaObjetivos()
-    
+
     def removerObjetivo(self):
         JanelaRemoverObjetivo(self)
         self.atualizaObjetivos()
@@ -242,17 +244,17 @@ class telaObjetivos(tk.Tk):
 
             show_custom_messagebox(self, "Erro de conflito", full_str, "400x150")
             return
-        
+
         self.escolha_prox_tela()
-    
+
     def wrong_data(self):
         messagebox.showwarning("showwarning", "Dados insuficientes")
-    
+
     def escolha_prox_tela(self):
         self.ticados = []
         self.atualizaObjetivos()
         JanelaProximaTela(self)
- 
+
 class JanelaProximaTela(tk.Toplevel):
     def __init__(self, parent):
         super().__init__(parent)
@@ -278,7 +280,7 @@ class JanelaProximaTela(tk.Toplevel):
     def confirmar_tela(self):
             tela = self.lb_telas.get(ACTIVE)
             self.nova_tela(tela)
-    
+
     def nova_tela(self, tela):
         self.parent.destroy()
 
@@ -286,7 +288,7 @@ class JanelaProximaTela(tk.Toplevel):
             telaPeso(self.parent.ticados_id)
         elif tela.lower().replace(' ', '') == "matrizderisco":
             telaMatriz(self.parent.ticados_id)
-        
+
 class JanelaRemoverRisco(tk.Toplevel):
     def __init__(self, parent):
         super().__init__(parent)
@@ -352,7 +354,7 @@ class JanelaRemoverRisco(tk.Toplevel):
         tk.Button(self, text="Remover", command=self.remove_risk).pack()
 
     def remove_risk(self):
-        
+
         risk_to_remove = self.lb_riscos.get(ACTIVE)
 
         conn = create_connection()
@@ -371,10 +373,10 @@ class JanelaRemoverRisco(tk.Toplevel):
         except:
             conn.close()
             return
-        
+
         pesos_query = cursor.fetchall()
         pesos_array = [list(item) for item in pesos_query]
-        
+
         try:
             conn.commit()
             cursor.execute(f"DELETE FROM impacto_probabilidade WHERE id_objetivo_origem = {self.id_objetivo_selecionado} AND nome_risco_origem = '{risk}'")
@@ -395,7 +397,7 @@ class JanelaRemoverRisco(tk.Toplevel):
             if nome1 == risk or nome2 == risk:
                 cursor.execute(f"DELETE FROM pesos WHERE id = {peso_id}")
                 conn.commit()
-        
+
         conn.close()
 
     def clear_window(self):
@@ -468,14 +470,14 @@ class JanelaAddRisco(tk.Toplevel):
         self.destroy()
 
     def check_risk_exists(self, risk):
-        
+
         conn = create_connection()
         cursor = conn.cursor()
         cursor.execute(f"SELECT * FROM riscos WHERE nome_risco = '{risk}' AND id_objetivo_origem = {self.id_objetivo}")
         cursor.fetchall()
         row = cursor.rowcount
         conn.close()
-        
+
         return row > 0
 
 class JanelaRemoverObjetivo(tk.Toplevel):
@@ -494,7 +496,7 @@ class JanelaRemoverObjetivo(tk.Toplevel):
 
         objetivos_array = [list(item) for item in objetivos_query]
         nomes_objetivos = [risco[0] for risco in objetivos_array]
-    
+
         self.lb_objetivos_remove = Listbox(self)
         for objetivo in nomes_objetivos:
             self.lb_objetivos_remove.insert(END, objetivo)
@@ -513,14 +515,14 @@ class JanelaRemoverObjetivo(tk.Toplevel):
         if objetivo_to_remove == "":
             show_custom_messagebox(self, "Erro", "Você precisa selecionar um objetivo")
             return
-        
+
         self.remove_all_from_db(objetivo_to_remove)
         self.parent.atualizaObjetivos()
 
         self.destroy()
 
     def remove_all_from_db(self, nome_objetivo):
-        try: 
+        try:
             conn = create_connection()
             cursor = conn.cursor()
             cursor.execute(f"SELECT id FROM objetivos WHERE nome_objetivo = '{nome_objetivo}'")
@@ -572,20 +574,20 @@ class JanelaAddObjetivo(tk.Toplevel):
 
             for item in cursor.fetchall():
                 dados.append(list(item))
-            
+
             repetido = False
 
             for dado in dados:
                 if novoObjetivo == dado[1]:
                     repetido = True
-            
+
             if repetido == False:
                 query = f"INSERT INTO objetivos (nome_objetivo) VALUES ('{novoObjetivo}')"
                 cursor.execute(query)
             else:
                 messagebox.showwarning("showwarning", "Objetivo já cadastrado")
                 return
-                    
+
             conn.commit()
 
             cursor.execute(f"SELECT id FROM objetivos where nome_objetivo = '{novoObjetivo}'")
@@ -593,7 +595,7 @@ class JanelaAddObjetivo(tk.Toplevel):
             id = convert_to_int(id)
             conn.commit()
             conn.close()
-            self.parent.objetivos.append(novoObjetivo) 
+            self.parent.objetivos.append(novoObjetivo)
             self.parent.atualizaObjetivos()
             default_values_column(id)
             self.destroy()
@@ -608,7 +610,7 @@ class telaMatriz(tk.Tk):
         self.window_height = 600
         self.window_width = 800
         self.geometry(f"{self.window_width}x{self.window_height}")
-        
+
         self.objetivos = objetivos_id
 
         self.page = 0
@@ -623,57 +625,134 @@ class telaMatriz(tk.Tk):
         conn = create_connection()
         cursor = conn.cursor()
 
-        cursor.execute(f"SELECT nome_risco_origem, impacto, probabilidade, nivel FROM impacto_probabilidade WHERE id_objetivo_origem = {self.objetivo_id}")   
+        cursor.execute(f"SELECT nome_risco_origem, impacto, probabilidade, nivel FROM impacto_probabilidade WHERE id_objetivo_origem = {self.objetivo_id}")
         allinfo = cursor.fetchall()
-        
+
         all_risk_table = convert_tuplelist_to_array(allinfo, 0)
         all_impact_table = convert_tuplelist_to_array(allinfo, 1)
         all_probability_table = convert_tuplelist_to_array(allinfo, 2)
-        
+
         conn.close()
 
-        self.page_frame = tk.Frame(self)
-        self.page_frame.pack(fill=tk.BOTH, expand=True)
+        # Cor padrão
+        verde_opet = '#174311'
+        laranja_opet = '#F24F13'
 
-        
-        Label(self.page_frame, text="Risco").place(x=self.window_width/2 - 120, y=10)
+        # Adicionando um frame para a barra superior
+        barra_superior = tk.Frame(self, bg=verde_opet, padx=15, pady=15)  # Adicionando padding
+        barra_superior.pack(side=tk.TOP, fill=tk.X)
 
-        Label(self.page_frame, text="Impacto").place(x=self.window_width/2, y=10)
-        
-        Label(self.page_frame, text="Probabilidade").place(x=self.window_width/2 + 120, y=10)
+        # Adicionando botão de voltar (seta)
+        homeButton = Image.open("images/homeicon.png")
+        homeButton = homeButton.resize((20, 20), Image.Resampling.LANCZOS)
 
-        i = 0
-        for i, risco in enumerate(all_risk_table):
-            if len(risco) >= 18:
-                risco = risco[:18]
-                risco+="..."
-            Label(self.page_frame, text=risco).place(x=self.window_width/2 - 130, y=75 + (i * 50))
+        homeButtonTk = ImageTk.PhotoImage(homeButton)
+        botao_home = tk.Button(barra_superior, image=homeButtonTk, bg=verde_opet, borderwidth=0, command=self.back_home)
+        botao_home.image = homeButtonTk  # Manter referência
+        botao_home.pack(side=tk.LEFT)
 
-            impacto_entry = tk.Entry(self.page_frame, width=3)
-            impacto_entry.place(x=self.window_width/2 + 20, y=75 + (i * 50))
-            impacto_entry.insert(0, all_impact_table[i])
+        # Adicionando título "Gestão de Riscos" no frame
+        titulo = tk.Label(barra_superior, text="Gestão de Riscos", font=('Open Sans', 16), bg=verde_opet, fg='white')
+        titulo.pack(side=tk.LEFT, expand=True)  # Centraliza o título na barra
 
-            probabilidade_entry = tk.Entry(self.page_frame, width=3)
-            probabilidade_entry.place(x=self.window_width/2 + 120, y=75 + (i * 50))
-            probabilidade_entry.insert(0, all_probability_table[i])
+        # Container principal que vai dividir a tela em duas colunas
+        container_principal = tk.Frame(self)
+        container_principal.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
 
-            self.entries[risco] = (impacto_entry, probabilidade_entry)
+        # Configurando a barra lateral (aside) com os valores de Impacto e Probabilidade
+        aside_frame = tk.Frame(container_principal, bg='white')
+        aside_frame.pack(side=tk.RIGHT, fill=tk.Y)
 
-            i += 1
+        # Configurando o frame do card
+        card_frame = tk.Frame(aside_frame, bg=verde_opet, padx=10, pady=10)
+        card_frame.pack(padx=10, pady=10, fill=tk.Y)  # Adicionando padding externo ao card
 
-        if self.page < len(self.objetivos)-1:
-            Button(self.page_frame, text="Next", command=self.next_page).pack(side=tk.BOTTOM, anchor=tk.SE, padx=10, pady=10)
+        # Título do Aside
+        aside_title = tk.Label(card_frame, text="VALORES", font=('Open Sans', 12), bg=verde_opet, fg='white')
+        aside_title.pack(pady=10)
+
+        # Texto explicativo sobre Impacto
+        impacto_label = tk.Label(card_frame, 
+                                text="Impacto:\n\n1 🠊 Leve\n2 🠊 Menor\n3 🠊 Moderado\n4 🠊 Maior\n5 🠊 Extremo", 
+                                font=('Open Sans', 10),
+                                bg=verde_opet, 
+                                fg='white',
+                                anchor='w',  # Alinha à esquerda
+                                justify='left',
+                                width=20)  # Define uma largura fixa
+        impacto_label.pack(pady=10)
+
+        # Texto explicativo sobre Probabilidade
+        prob_label = tk.Label(card_frame, 
+                            text="Probabilidade:\n\n1 🠊 Rara\n2 🠊 Pouco Provável\n3 🠊 Possível\n4 🠊 Provável\n5 🠊 Muito Provável", 
+                            font=('Open Sans', 10), 
+                            bg=verde_opet, 
+                            fg='white',
+                            anchor='w',  # Alinha à esquerda
+                            justify='left', width=20)  # Define uma largura fixa
+        prob_label.pack(pady=10)
+
+        # Frame principal para a tabela de riscos (lado esquerdo)
+        main_frame = tk.Frame(container_principal, bg='white')
+        main_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(20, 0), pady=20)
+
+        # Container para a tabela com rolagem
+        canvas = tk.Canvas(main_frame, bg='white')
+        scrollbar = Scrollbar(main_frame, orient="vertical", command=canvas.yview)
+        scrollable_frame = tk.Frame(canvas, bg='white')
+
+        # Configurando o scrollable frame
+        scrollable_frame.bind(
+            "<Configure>",
+            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+        )
+
+        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+
+        # Adicionando a barra de rolagem
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+        # Adicionando cabeçalho
+        header = tk.Frame(scrollable_frame, bg='white')
+        header.pack(fill=tk.X)
+
+        # Configurando os rótulos do cabeçalho
+        tk.Label(header, text="Riscos", bg='white', font=('Open Sans', 12), width=20).grid(row=0, column=0, padx=10, pady=5)
+        tk.Label(header, text="Impacto", bg='white', font=('Open Sans', 12), width=10).grid(row=0, column=1, padx=10, pady=5)
+        tk.Label(header, text="Probabilidade", bg='white', font=('Open Sans', 12), width=15).grid(row=0, column=2, padx=10, pady=5)
+
+        # Adicionando dados de exemplo (os riscos serão importados do banco)
+        risks_from_db = all_risk_table
+
+        # Loop para adicionar os riscos e os campos de entrada
+        for i, risk in enumerate(risks_from_db, start=1):
+            risk_frame = tk.Frame(scrollable_frame, bg='white')
+            risk_frame.pack(fill=tk.X, padx=20, pady=5)
+
+            # Adicionando rótulos e entradas no grid
+            tk.Label(risk_frame, text=risk, bg='white', width=20).grid(row=0, column=0, padx=10)
+            impacto_entry = Entry(risk_frame, width=10)  # Entry para Impacto
+            impacto_entry.insert(0, all_impact_table[i-1])
+            impacto_entry.grid(row=0, column=1, padx=40)
+            probabilidade_entry = Entry(risk_frame, width=10)  # Entry para Probabilidade
+            probabilidade_entry.insert(0, all_probability_table[i-1])
+            probabilidade_entry.grid(row=0, column=2, padx=40)
+
+            self.entries[risk] = (impacto_entry, probabilidade_entry)
 
         if self.page > 0:
-            Button(self.page_frame, text="Previous", command=self.previous_page).pack(side=tk.BOTTOM, anchor=tk.SW, padx=10, pady=10)
+            botao_previous = tk.Button(aside_frame, text="PREVIOUS", font=('Open Sans', 12), bg=laranja_opet, fg='white', command=self.previous_page, width=20)
+            botao_previous.pack(pady=10)
+
+        if self.page < len(self.objetivos)-1:
+            botao_next = tk.Button(aside_frame, text="NEXT", font=('Open Sans', 12), bg=laranja_opet, fg='white', command=self.next_page, width=20)
+            botao_next.pack(pady=10)
 
         if self.page == len(self.objetivos)-1:
-            Button(self.page_frame, text="Montar Matriz", command=self.last_page).pack(side=tk.BOTTOM, anchor=tk.SE, padx=10, pady=10)
-
-        Button(self.page_frame, text="Help", command=self.show_help_info).place(x=self.window_width/2 - 20, y=self.window_height - 45)
-
-        if self.page == 0:
-            Button(self.page_frame, text="Home", command=self.back_home).place(x=15, y=self.window_height - 45)
+            botao_gerar = tk.Button(aside_frame, text="GERAR MATRIZ", font=('Open Sans', 12), bg=laranja_opet, fg='white', command=self.last_page, width=20)
+            botao_gerar.pack(pady=10)
 
     def back_home(self):
         self.destroy()
@@ -741,27 +820,6 @@ class telaMatriz(tk.Tk):
         range_aceito = [1, 2, 3, 4, 5]
         return value in range_aceito
     
-    def show_help_info(self):
-        help_window = tk.Toplevel(self)
-        help_window.title("Informações de valores")
-        help_window.geometry("400x200")
-        help_window.resizable(False, False)
-        text_widget = tk.Text(help_window, wrap=tk.WORD, padx=10, pady=10)
-        text_widget.insert(tk.END, 
-        """
-            Impacto    -    Probabilidade
-        1 → Leve            Rara
-        2 → Menor           Pouco provável
-        3 → Moderado        Possível
-        4 → Maior           Provável
-        5 → Extremo         Muito provável
-        """)
-        text_widget.configure(state='disabled')
-        text_widget.pack(expand=True, fill=tk.BOTH)
-
-        close_button = tk.Button(help_window, text="Fechar", command=help_window.destroy)
-        close_button.pack(pady=10)
-
 class telaPeso(tk.Tk):
     def __init__(self, objetivos):
         super().__init__()
@@ -781,7 +839,7 @@ class telaPeso(tk.Tk):
         self.page_frame.pack(fill=tk.BOTH, expand=True)
 
         self.show_page(self.page)
-    
+
     def show_page(self, page):
         # Limpar o conteúdo da página anterior
         for widget in self.page_frame.winfo_children():
@@ -854,13 +912,13 @@ class telaPeso(tk.Tk):
                 risco2+="..."
 
             tk.Label(self.page_frame, text=risco1).place(x=self.window_width/2 - 100, y=10 + (i * 50))
-            
+
             entry = tk.Entry(self.page_frame, width=3)
             entry.place(x=self.window_width/2, y=10 + (i * 50))
             entry.insert(0, str(peso))
-            
+
             tk.Label(self.page_frame, text=risco2).place(x=self.window_width/2 + 100, y=10 + (i * 50))
-            
+
             self.entries[combinacao] = entry
             i += 1
 
@@ -891,7 +949,7 @@ class telaPeso(tk.Tk):
             if self.check_values(valor) == False:
                 messagebox.showwarning("showwarning", "Dados incorretos")
                 return
-            
+
         if self.current_page < self.total_pages:
             self.update_database()
             self.current_page += 1
@@ -916,7 +974,7 @@ class telaPeso(tk.Tk):
         help_window.geometry("400x200")
         help_window.resizable(False, False)
         text_widget = tk.Text(help_window, wrap=tk.WORD, padx=10, pady=10)
-        text_widget.insert(tk.END, 
+        text_widget.insert(tk.END,
         """
         1 → Igual importância
         3 → Pouco mais importante
@@ -969,7 +1027,7 @@ class telaPeso(tk.Tk):
                 messagebox.showwarning("showwarning", "Dados incorretos")
                 return
         self.update_database()
-        
+
         self.montar_ahp()
 
     def montar_ahp(self):
@@ -1003,7 +1061,7 @@ class MatrizMontada(tk.Tk):
 
         # Criar uma matriz de strings para armazenar os nomes dos riscos
         matriz_riscos_nomes = np.full((5, 5), '', dtype=object)
-        
+
         conn = create_connection()
         cursor = conn.cursor()
         cursor.execute(f"SELECT nome_risco_origem, impacto, probabilidade FROM impacto_probabilidade WHERE id_objetivo_origem = {id_obj}")
@@ -1042,7 +1100,7 @@ class MatrizMontada(tk.Tk):
         for i in range(matriz_risco.shape[0]):
             for j in range(matriz_risco.shape[1]):
                 if matriz_riscos_nomes[i, j] != '':  # Só exibe se houver risco
-                    ax.text(j + 0.5, i + 0.35, f'{matriz_riscos_nomes[i, j]}', 
+                    ax.text(j + 0.5, i + 0.35, f'{matriz_riscos_nomes[i, j]}',
                             ha='center', va='bottom', color='black', fontsize=8)
 
         # Ajuste dos rótulos dos eixos para iniciar em 1
@@ -1064,7 +1122,7 @@ class MatrizMontada(tk.Tk):
             Button(self, text=objetivos[i][0], command=partial(self.change_matrix, self.id_objetivos[i])).pack(side=tk.LEFT)
 
     def change_matrix(self, id):
-        
+
         plt.close()
         self.clear_window()
         self.show_matrix(id)
@@ -1104,14 +1162,14 @@ class AhpMontado(tk.Tk):
     def criar_grafico_radar(self, valores, categorias, objetivo):
         # Número de categorias
         N = len(categorias)
-        
+
         # Ângulo para cada eixo
         angles = np.linspace(0, 2 * np.pi, N, endpoint=False).tolist()
-        
+
         # Fechar o gráfico
         valores = np.concatenate((valores, [valores[0]]))
         angles += angles[:1]
-        
+
         # Criar o gráfico
         fig, ax = plt.subplots(figsize=(8, 8), subplot_kw=dict(polar=True))  # Aumentar o tamanho do gráfico
 
@@ -1122,7 +1180,7 @@ class AhpMontado(tk.Tk):
         # Adicionar rótulos
         ax.set_yticklabels([])
         ax.set_xticks(angles[:-1])
-        
+
         # Ajustar o espaçamento dos rótulos
         ax.set_xticklabels(categorias, fontsize=12, fontweight='bold', ha='center', rotation=45)
 
@@ -1140,7 +1198,7 @@ class AhpMontado(tk.Tk):
         canvas.get_tk_widget().pack()
 
     def show_page(self, id):
-        
+
         self.protocol("WM_DELETE_WINDOW", self.on_closing)
 
         conn = create_connection()
@@ -1165,7 +1223,7 @@ class AhpMontado(tk.Tk):
         for i in range(n):
             for j in range(i+1, n):
                 _, value = list(pesos_resp.items())[control]
-                
+
                 matriz[i, j] = value
                 matriz[j, i] = 1/value
                 control += 1
@@ -1177,7 +1235,7 @@ class AhpMontado(tk.Tk):
 
         for i in range(len(self.objetivos)):
             Button(self, text=self.objetivos_response[i][0], command=partial(self.change_ahp, self.objetivos[i])).pack(side=tk.LEFT)
-    
+
     def change_ahp(self, id):
         plt.close()
         self.clear_window()
