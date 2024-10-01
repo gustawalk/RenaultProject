@@ -1,15 +1,31 @@
 import tkinter as tk
 from tkinter import *
-from PIL import Image, ImageTk  # Certifique-se de ter a biblioteca Pillow instalada
+from PIL import Image, ImageTk
 from tkinter import messagebox
 import mysql.connector
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
+import matplotlib
+matplotlib.use('Agg')
 from matplotlib.colors import ListedColormap, BoundaryNorm
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.backends._backend_tk import NavigationToolbar2Tk
 from functools import partial
+
+def img2botao(imagem, canvas, comando, spacing=0):
+        imagem = Image.open(f"images/{imagem}.png")
+        imagem = imagem.resize((250, 45))
+        photoimage = ImageTk.PhotoImage(imagem)
+        canvas.configure(highlightthickness=0)
+        button = tk.Button(canvas.frame_botoes, image=photoimage, compound=tk.TOP, bg='white', highlightthickness=0, borderwidth=0)
+        button.image = photoimage  # Armazena a imagem para evitar garbage collection
+        if spacing > 0:
+            button.place(relx=0, rely=0, y=0)
+        else:
+            button.pack(fill=tk.X, expand=True)
+        button.pack(fill=tk.X, expand=True)
+        button.bind('<Button-1>', lambda event: comando())
 
 def show_custom_messagebox(root, title, message, geometry=("300x150")):
     # Cria uma nova janela de diálogo
@@ -139,32 +155,43 @@ def create_tables():
 class telaObjetivos(tk.Tk):
     def __init__(self):
         super().__init__()
+        self.h = "600" #v
+        self.w = "800" #v
+        self.tamanho_tela = f'{self.w}x{self.h}' #v
         self.title("Objetivos")
-        self.geometry("800x600")
+        self.geometry(self.tamanho_tela)
         self.resizable(False, False)
 
-        self.frameObjetivos = tk.Frame(self)
-        self.frameObjetivos.pack(expand=True)
+        verde_opet = '#174311'
+        laranja_opet = '#F24F13'
 
-        self.botaoAdicionar = tk.Button(self, text="Adicionar Objetivo", command=self.adicionaObjetivo)
-        self.botaoAdicionar.pack(pady=10)
-        self.botaoRemover = tk.Button(self, text="Remover Objetivo", command=self.removerObjetivo)
-        self.botaoRemover.pack(pady=10)
+        #self.frameObjetivos = tk.Frame(self)
+        #self.frameObjetivos.pack(expand=True)
+
+        self.canvas = tk.Canvas(self, bg='white', width=self.w, height=self.h)
+        self.canvas.pack(expand=True, fill=tk.BOTH)
+
+        self.retangulo_cabecalho = self.canvas.create_rectangle(0, 0, self.w, 50, fill=verde_opet, outline=verde_opet)
+
+        self.titulo_cabecalho = self.canvas.create_text(int(self.w)//2, 25, text="Gestão de Riscos", font=('Open Sans', 12), fill='white')
+
+        #nao ta mostrando mas da pra clicar kkkk
+        #self.img_xis = img2botao("images/setaXis.png", 20, 20, self.canvas, int(self.w) - 30, 25, self.destroy)
+
+        self.frame_botoes = tk.Frame(self.canvas, bg = 'white')
+        self.frame_botoes.place(relx=0.25 , rely=0.75, relwidth=0.5, relheight=0.2)
+        
+        img2botao('botao3', self, lambda: JanelaAddObjetivo(self))
+        img2botao('botao2', self, lambda: JanelaAddRisco(self))
+
+        #self.main_frame = tk.Frame(self.canvas, bg='white')
+        #self.main_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(20, 0), pady=20)
 
         self.objetivos = self.carregaObjetivos()
         self.ticados = []
         self.atualizaObjetivos()
 
-        self.frame = tk.Frame(self)
-        self.frame.pack(expand=True, fill=tk.BOTH)
-
-        self.botaoRiscos = tk.Button(self, text="Adicionar Risco", command=self.adicionarRisco)
-        self.botaoRiscos.pack(pady=10)
-
-        self.removerRiscos = tk.Button(self, text="Remover Risco", command=self.removerRisco)
-        self.removerRiscos.pack(pady=10)
-
-        self.botaoProximo = tk.Button(self, text="🡆", command=self.excluiResto)
+        self.botaoProximo = tk.Button(self.canvas, text="🡆", command=self.excluiResto)
         self.botaoProximo.pack(side=tk.BOTTOM, anchor=tk.SE, padx=10, pady=10)
 
     def adicionarRisco(self):
@@ -191,16 +218,20 @@ class telaObjetivos(tk.Tk):
     def atualizaObjetivos(self):
         self.objetivos = self.carregaObjetivos()
 
-        for widget in self.frameObjetivos.winfo_children():
-            widget.destroy()
+        self.frame_objetivos = tk.Frame(self.canvas, bg='white')
+        self.frame_objetivos.place(relx=0.35, rely=0.35, relwidth=0.40, relheight=0.35)
 
         self.ticados = []
 
+        y_pos = 0
         for _, objetivo in self.objetivos:
-            taTicado = tk.BooleanVar()
-            checkBox = tk.Checkbutton(self.frameObjetivos, text=f"{objetivo.capitalize()}", variable=taTicado)
-            checkBox.pack(anchor="w")
+            taTicado = tk.BooleanVar(value=False)
+            checkbox = tk.Checkbutton(self.frame_objetivos, text=f"{objetivo.capitalize()}", variable=taTicado, bg='white', highlightthickness=0)
+            checkbox.grid(row=y_pos, column=0, sticky="w")
             self.ticados.append(taTicado)
+            y_pos += 1
+
+        tk.Label(self.frame_objetivos, text="\n").grid(row=y_pos, column=0)
 
     def adicionaObjetivo(self):
         JanelaAddObjetivo(self)
@@ -1041,13 +1072,20 @@ class MatrizMontada(tk.Tk):
         self.resizable(False, False)
         self.title("Matriz")
 
-        self.id_objetivos = objetivos
+        # Cor padrão
+        self.verde_opet = '#174311'
+        self.laranja_opet = '#F24F13'
 
+        self.id_objetivos = objetivos
         self.id_objetivo = self.id_objetivos[0]
 
         self.show_matrix(self.id_objetivo)
 
     def show_matrix(self, id_obj):
+        # Adicionando um frame para a barra superior
+        barra_superior = tk.Frame(self, bg=self.verde_opet, padx=15, pady=15)  # Adicionando padding
+        barra_superior.pack(side=tk.TOP, fill=tk.X)
+
         # Configura o fechamento correto do programa
         self.protocol("WM_DELETE_WINDOW", self.on_closing)
 
@@ -1085,7 +1123,7 @@ class MatrizMontada(tk.Tk):
                 matriz_riscos_nomes[probabilidade-1, impacto-1] += f', {risco}'
 
         # Definir o colormap personalizado (verde, amarelo, vermelho)
-        colors = ["green", "yellow", "red"]
+        colors = [(0.09, 0.26, 0.06, 1), (0.94, 0.61, 0.07, 1), (0.85, 0.17, 0.01, 1)]
         cmap = ListedColormap(colors)
 
         # Definir os limites para cada faixa de cores
@@ -1107,22 +1145,24 @@ class MatrizMontada(tk.Tk):
         ax.set_xticklabels([1, 2, 3, 4, 5])
         ax.set_yticklabels([1, 2, 3, 4, 5])
 
-        plt.title('Matriz de Risco - ' + str(convert_to_str(nome_obj)))
+        # Botão de voltar
+        homeButton = tk.Button(barra_superior, text="🏠", bg=self.laranja_opet, command=self.back_home)
+        homeButton.pack(side="left")
+
+        titulo = tk.Label(barra_superior, text='Matriz de Risco - ' + str(convert_to_str(nome_obj)), font=('Open Sans', 16), bg=self.verde_opet, fg='white')
+        titulo.pack(side=tk.LEFT, expand=True)  # Centraliza o título na barra
         plt.xlabel('Impacto')
         plt.ylabel('Probabilidade')
 
         canvas = FigureCanvasTkAgg(fig, master=self)
         canvas.get_tk_widget().pack()
 
-        toolbar = NavigationToolbar2Tk(canvas, self, pack_toolbar=False)
-        toolbar.update()
-        toolbar.pack(anchor="w", fill=tk.X)
-
         for i in range(len(self.id_objetivos)):
-            Button(self, text=objetivos[i][0], command=partial(self.change_matrix, self.id_objetivos[i])).pack(side=tk.LEFT)
+            button = tk.Button(self, width=20, height=2, text=objetivos[i][0], bg=self.laranja_opet, fg='black',
+                               command=lambda id=self.id_objetivos[i]: self.change_matrix(id))
+            button.pack(side="left", padx=5, pady=5)
 
     def change_matrix(self, id):
-
         plt.close()
         self.clear_window()
         self.show_matrix(id)
@@ -1135,6 +1175,11 @@ class MatrizMontada(tk.Tk):
     def clear_window(self):
         for widget in self.winfo_children():
             widget.destroy()
+
+    def back_home(self):
+        plt.close()
+        self.destroy()
+        telaObjetivos()  # Ce
 
 class AhpMontado(tk.Tk):
     def __init__(self, objetivos):
