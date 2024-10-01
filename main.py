@@ -181,8 +181,8 @@ class telaObjetivos(tk.Tk):
         self.frame_botoes = tk.Frame(self.canvas, bg = 'white')
         self.frame_botoes.place(relx=0.25 , rely=0.75, relwidth=0.5, relheight=0.2)
         
-        img2botao('botao3', self, lambda: JanelaAddObjetivo(self))
-        img2botao('botao2', self, lambda: JanelaAddRisco(self))
+        img2botao('botaoobjetivos', self, lambda: JanelaAddObjetivo(self))
+        img2botao('botaoriscos', self, lambda: JanelaAddRisco(self))
 
         #self.main_frame = tk.Frame(self.canvas, bg='white')
         #self.main_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(20, 0), pady=20)
