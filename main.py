@@ -182,7 +182,7 @@ class telaObjetivos(tk.Tk):
         self.frame_botoes.place(relx=0.25 , rely=0.75, relwidth=0.5, relheight=0.2)
         
         img2botao('botaoobjetivos', self, lambda: JanelaAddObjetivo(self))
-        img2botao('botaoriscos', self, lambda: JanelaAddRisco(self))
+        img2botao('botaoriscos', self, lambda : JanelaAddRisco(self))
 
         #self.main_frame = tk.Frame(self.canvas, bg='white')
         #self.main_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(20, 0), pady=20)
@@ -196,9 +196,6 @@ class telaObjetivos(tk.Tk):
 
     def adicionarRisco(self):
         JanelaAddRisco(self)
-
-    def removerRisco(self):
-        JanelaRemoverRisco(self)
 
     def carregaObjetivos(self):
         conn = create_connection()
@@ -227,18 +224,12 @@ class telaObjetivos(tk.Tk):
         for _, objetivo in self.objetivos:
             taTicado = tk.BooleanVar(value=False)
             checkbox = tk.Checkbutton(self.frame_objetivos, text=f"{objetivo.capitalize()}", variable=taTicado, bg='white', highlightthickness=0)
-            checkbox.grid(row=y_pos, column=0, sticky="w")
+            checkbox.grid(row=y_pos, column=0, sticky="w", padx=75)
             self.ticados.append(taTicado)
             y_pos += 1
 
-        tk.Label(self.frame_objetivos, text="\n").grid(row=y_pos, column=0)
-
     def adicionaObjetivo(self):
         JanelaAddObjetivo(self)
-        self.atualizaObjetivos()
-
-    def removerObjetivo(self):
-        JanelaRemoverObjetivo(self)
         self.atualizaObjetivos()
 
     def excluiResto(self):
@@ -305,6 +296,7 @@ class JanelaProximaTela(tk.Toplevel):
         Button(self, text="Confirmar", command=self.confirmar_tela).pack()
 
         self.transient(self.parent)
+        self.wait_visibility()
         self.grab_set()
         self.parent.wait_window(self)
 
@@ -320,166 +312,118 @@ class JanelaProximaTela(tk.Toplevel):
         elif tela.lower().replace(' ', '') == "matrizderisco":
             telaMatriz(self.parent.ticados_id)
 
-class JanelaRemoverRisco(tk.Toplevel):
-    def __init__(self, parent):
-        super().__init__(parent)
-        self.resizable(False, False)
-        self.title("Remover Risco")
-        self.geometry("400x300")
-        self.parent = parent
-
-        self.show_first_window()
-
-        self.transient(self.parent)
-        self.grab_set()
-        self.parent.wait_window(self)
-
-    def show_first_window(self):
-        conn = create_connection()
-        cursor = conn.cursor()
-        cursor.execute("SELECT nome_objetivo FROM objetivos")
-        objetivos_query = cursor.fetchall()
-
-        objetivos_array = [list(item) for item in objetivos_query]
-        nomes_objetivos = [risco[0] for risco in objetivos_array]
-
-        lista_objetivos = nomes_objetivos
-        conn.close()
-
-        self.lb_objetivos = Listbox(self)
-        for objetivos in lista_objetivos:
-            self.lb_objetivos.insert(END, objetivos)
-        self.lb_objetivos.select_set(0)
-        self.lb_objetivos.pack()
-
-        tk.Button(self, text="Selecionar Objetivo", command=self.select_risks).pack()
-
-    def select_risks(self):
-        objetivo_selecionado = self.lb_objetivos.get(ACTIVE)
-
-        if objetivo_selecionado == "":
-            show_custom_messagebox(self, "Erro", "Você precisa selecionar um objetivo")
-            return
-
-        self.clear_window()
-
-        conn = create_connection()
-        cursor = conn.cursor()
-        cursor.execute(f"SELECT id FROM objetivos WHERE nome_objetivo = '{objetivo_selecionado}'")
-        self.id_objetivo_selecionado = cursor.fetchall()
-        self.id_objetivo_selecionado = convert_to_int(self.id_objetivo_selecionado)
-        conn.commit()
-        cursor.execute(f"SELECT nome_risco FROM riscos WHERE id_objetivo_origem = {self.id_objetivo_selecionado}")
-        riscos_query = cursor.fetchall()
-        riscos_array = [list(item) for item in riscos_query]
-        nomes_riscos = [risco[0] for risco in riscos_array]
-        conn.commit()
-        conn.close()
-
-        self.lb_riscos = Listbox(self)
-        for risco in nomes_riscos:
-            self.lb_riscos.insert(END, risco)
-        self.lb_riscos.select_set(0)
-        self.lb_riscos.pack()
-
-        tk.Button(self, text="Remover", command=self.remove_risk).pack()
-
-    def remove_risk(self):
-
-        risk_to_remove = self.lb_riscos.get(ACTIVE)
-
-        conn = create_connection()
-        cursor = conn.cursor()
-        cursor.execute(f"DELETE FROM riscos WHERE nome_risco = '{risk_to_remove}' AND id_objetivo_origem = {self.id_objetivo_selecionado}")
-        conn.commit()
-        conn.close()
-        self.update_db_removing_old_risks(risk_to_remove)
-        self.destroy()
-
-    def update_db_removing_old_risks(self, risk):
-        conn = create_connection()
-        cursor = conn.cursor()
-        try:
-            cursor.execute(f"SELECT id, nome_combinacao FROM pesos WHERE id_objetivo_origem = {self.id_objetivo_selecionado}")
-        except:
-            conn.close()
-            return
-
-        pesos_query = cursor.fetchall()
-        pesos_array = [list(item) for item in pesos_query]
-
-        try:
-            conn.commit()
-            cursor.execute(f"DELETE FROM impacto_probabilidade WHERE id_objetivo_origem = {self.id_objetivo_selecionado} AND nome_risco_origem = '{risk}'")
-            conn.commit()
-        except Exception as e:
-            conn.close()
-            return
-
-        if pesos_array == []:
-            return
-
-        for peso in pesos_array:
-            peso_id = peso[0]
-            nome_peso = peso[1]
-
-            nome1, nome2 = nome_peso.split("X")
-
-            if nome1 == risk or nome2 == risk:
-                cursor.execute(f"DELETE FROM pesos WHERE id = {peso_id}")
-                conn.commit()
-
-        conn.close()
-
-    def clear_window(self):
-        for widget in self.winfo_children():
-            widget.destroy()
-
 class JanelaAddRisco(tk.Toplevel):
     def __init__(self, parent):
         super().__init__(parent)
         self.resizable(False, False)
         self.title("Adicionar Risco")
-        self.geometry("400x300")
         self.parent = parent
 
         conn = create_connection()
         cursor = conn.cursor()
-        cursor.execute("SELECT nome_objetivo FROM objetivos")
-        objetivos_query = cursor.fetchall()
+        cursor.execute("SELECT * FROM objetivos")
+        self.rowcount = len(cursor.fetchall())
+        conn.close()
 
-        objetivos_array = [list(item) for item in objetivos_query]
-        nomes_objetivos = [risco[0] for risco in objetivos_array]
-
-        lista_objetivos = nomes_objetivos
-
-        self.lb_objetivos = Listbox(self)
-        for objetivo in lista_objetivos:
-            self.lb_objetivos.insert(END, objetivo)
-        self.lb_objetivos.select_set(0)
-        self.lb_objetivos.pack()
-
-        self.entryRisco = Entry(self)
-        self.entryRisco.pack(pady=5)
-
-        self.botaoAdicionarRisco = tk.Button(self, text="Adicionar", command=self.adicionarRisco)
-        self.botaoAdicionarRisco.pack(pady=10)
+        self.show_page()
 
         self.transient(self.parent)
+        self.wait_visibility()
         self.grab_set()
         self.parent.wait_window(self)
 
+    def show_page(self):
+        if self.rowcount > 0:
+            conn = create_connection()
+            cursor = conn.cursor()
+            cursor.execute("SELECT nome_objetivo FROM objetivos")
+            objetivos_query = cursor.fetchall()
+            conn.close()
+
+            objetivos_array = [list(item) for item in objetivos_query]
+            nomes_objetivos = [risco[0] for risco in objetivos_array]
+
+            lista_objetivos = nomes_objetivos
+            Label(self, text="Objetivos").pack(padx=100)
+            self.lb_objetivos = Listbox(self, selectmode=tk.BROWSE, exportselection=False)
+            for objetivo in lista_objetivos:
+                self.lb_objetivos.insert(END, objetivo)
+                self.lb_objetivos.bind('<<ListboxSelect>>', self.on_change)
+            self.lb_objetivos.select_set(0)
+            self.lb_objetivos.pack()
+
+            self.atualiza_altura_listbox(self.lb_objetivos)
+
+            Label(self, text="Riscos").pack()
+            self.lb_riscos = Listbox(self, selectmode=tk.BROWSE, exportselection=False)
+            self.update_risks(self.lb_objetivos.get(ACTIVE))
+
+            self.entryRisco = Entry(self, fg="gray")
+            self.entryRisco.insert(0, "Digite um novo risco...")
+            self.entryRisco.bind("<FocusIn>", self.on_entry_click)
+            self.entryRisco.bind("<FocusOut>", self.on_focusout)
+            self.entryRisco.pack(pady=5)
+
+            self.botaoAdicionarRisco = tk.Button(self, text="Adicionar/Remover", command=self.adicionarRisco)
+            self.botaoAdicionarRisco.pack(pady=10)
+        else:
+            self.geometry("300x100")
+            Label(self, text="Você não possui objetivos cadastrados").pack()
+
+    def atualiza_altura_listbox(self, listbox):
+            # Obtém o número de itens
+            num_itens = listbox.size()
+            # Define a altura da Listbox, limitando a um máximo de 6
+            altura = num_itens
+            listbox.config(height=altura)
+    
+    def clear_window(self):
+        # Remove todos os itens da Listbox de riscos
+        self.lb_riscos.delete(0, END)
+
+    def update_risks(self, nome_obj):
+
+        conn = create_connection()
+        cursor = conn.cursor()
+        cursor.execute(f"SELECT id FROM objetivos WHERE nome_objetivo = '{nome_obj}'")
+        id_response = cursor.fetchall()
+        id_response = convert_to_int(id_response)
+        cursor.execute(f"SELECT nome_risco FROM riscos WHERE id_objetivo_origem = {id_response}")
+        riscos_response = cursor.fetchall()
+        conn.close()
+
+        nome_riscos = convert_tuplelist_to_array(riscos_response)
+
+        for riscos in nome_riscos:
+            self.lb_riscos.insert(END, riscos)
+        self.lb_riscos.pack()
+        self.lb_riscos.select_set(0)
+
+        self.atualiza_altura_listbox(self.lb_riscos)
+
+
+    def on_change(self, event):
+        widget = event.widget
+        selection = widget.curselection()
+        if selection:
+            index = selection[0]
+            data = widget.get(index)
+            self.clear_window()
+            self.update_risks(data)
+
+
     def adicionarRisco(self):
         objetivo_marcado = self.lb_objetivos.get(ACTIVE)
+
         novo_risco = self.entryRisco.get()
-        if objetivo_marcado == "" or novo_risco.replace(" ", "") == "":
+        if objetivo_marcado == "" or novo_risco.replace(" ", "") == "" or novo_risco == "Digite um novo risco...":
             string = ""
             if objetivo_marcado == "":
                 string = "Você precisa marcar um objetivo"
+                show_custom_messagebox(self, "Erro", string)
             else:
-                string = "Você precisa preencher o nome do risco"
+                self.delete_risk(self.lb_riscos.get(ACTIVE), self.lb_objetivos.get(ACTIVE))
 
-            show_custom_messagebox(self, "Erro", string)
             return
 
         #pegando o id do objetivo da lista
@@ -493,12 +437,29 @@ class JanelaAddRisco(tk.Toplevel):
         if self.check_risk_exists(novo_risco):
             show_custom_messagebox(self, "Erro", "Já existe um risco com esse nome")
             return
+        
+        if novo_risco == "Digite um novo risco...":
+            show_custom_messagebox(self, "Erro", "Coloque um nome para seu risco")
+            return
 
         cursor.execute(f"INSERT INTO riscos (nome_risco, id_objetivo_origem) VALUES ('{novo_risco}', {id_objetivo})")
         cursor.execute(f"INSERT INTO impacto_probabilidade (id_objetivo_origem, nome_risco_origem, impacto, probabilidade, nivel) VALUES ({id_objetivo}, '{novo_risco}', 0, 0, 0)")
         conn.commit()
         conn.close()
         self.destroy()
+
+    def delete_risk(self, risk, nome_obj):
+        conn = create_connection()
+        cursor = conn.cursor()
+        cursor.execute(f"SELECT id FROM objetivos WHERE nome_objetivo = '{nome_obj}'")
+        id_response = cursor.fetchall()
+        id_response = convert_to_int(id_response)
+        cursor.execute(f"DELETE FROM riscos WHERE nome_risco = '{risk}' AND id_objetivo_origem = {id_response}")
+        conn.commit()
+        conn.close()
+        
+        self.destroy()
+        return
 
     def check_risk_exists(self, risk):
 
@@ -510,89 +471,72 @@ class JanelaAddRisco(tk.Toplevel):
         conn.close()
 
         return row > 0
+    
+    def on_entry_click(self, event):
+        if self.entryRisco.get() == "Digite um novo risco...":
+            self.entryRisco.delete(0, "end") 
+            self.entryRisco.config(fg='black') 
 
-class JanelaRemoverObjetivo(tk.Toplevel):
-    def __init__(self, parent):
-        super().__init__(parent)
-        self.resizable(False, False)
-        self.title("Remover Objetivo")
-        self.geometry("300x250")
-        self.parent = parent
-
-        conn = create_connection()
-        cursor = conn.cursor()
-        cursor.execute("SELECT nome_objetivo FROM objetivos")
-        objetivos_query = cursor.fetchall()
-        conn.close()
-
-        objetivos_array = [list(item) for item in objetivos_query]
-        nomes_objetivos = [risco[0] for risco in objetivos_array]
-
-        self.lb_objetivos_remove = Listbox(self)
-        for objetivo in nomes_objetivos:
-            self.lb_objetivos_remove.insert(END, objetivo)
-        self.lb_objetivos_remove.select_set(0)
-        self.lb_objetivos_remove.pack()
-
-        Button(self, text="Remover Objetivo", command=self.remove_objetivo).pack()
-
-        self.transient(self.parent)
-        self.grab_set()
-        self.parent.wait_window(self)
-
-    def remove_objetivo(self):
-        objetivo_to_remove = self.lb_objetivos_remove.get(ACTIVE)
-
-        if objetivo_to_remove == "":
-            show_custom_messagebox(self, "Erro", "Você precisa selecionar um objetivo")
-            return
-
-        self.remove_all_from_db(objetivo_to_remove)
-        self.parent.atualizaObjetivos()
-
-        self.destroy()
-
-    def remove_all_from_db(self, nome_objetivo):
-        try:
-            conn = create_connection()
-            cursor = conn.cursor()
-            cursor.execute(f"SELECT id FROM objetivos WHERE nome_objetivo = '{nome_objetivo}'")
-            id = cursor.fetchall()
-            id = convert_to_int(id)
-            cursor.execute(f"DELETE FROM pesos WHERE id_objetivo_origem = {id}")
-            cursor.execute(f"DELETE FROM riscos WHERE id_objetivo_origem = {id}")
-            cursor.execute(f"DELETE FROM objetivos WHERE nome_objetivo = '{nome_objetivo}'")
-            cursor.execute(f"DELETE FROM impacto_probabilidade WHERE id_objetivo_origem = {id}")
-            conn.commit()
-            conn.close()
-        except Exception:
-            return
+    def on_focusout(self, event):
+        if self.entryRisco.get() == "":
+            self.entryRisco.insert(0, "Digite um novo risco...")  
+            self.entryRisco.config(fg='gray') 
 
 class JanelaAddObjetivo(tk.Toplevel):
     def __init__(self, parent):
         super().__init__(parent)
         self.resizable(False, False)
-        self.title("Adicionar Objetivo")
-        self.geometry("300x150")
+        self.title("Objetivos")
         self.parent = parent
 
-        self.label = tk.Label(self, text="Insira um novo objetivo:")
-        self.label.pack(pady=10)
+        verde_opet = '#174311'
+        laranja_opet = '#F24F13'
+        # parte dos objetivos
 
-        self.entryObjetivo = tk.Entry(self)
-        self.entryObjetivo.pack(pady=5)
+        conn = create_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT id, nome_objetivo FROM objetivos")
+        obj_response = cursor.fetchall()
+        conn.close()
+
+        obj_id_response = convert_tuplelist_to_array(obj_response, 0)
+        obj_nome_response = convert_tuplelist_to_array(obj_response, 1)
+
+        Label(self, text="Remova um objetivo").grid(row=0, column=0)
+
+        for i, obj in enumerate(obj_nome_response, start=1):
+            Label(self, text=obj).grid(row=i, column=0)
+            Button(self, text="X", command=partial(self.removerObjetivo, obj_id_response[i-1])).grid(row=i, column=1)
+
+        Label(self, text="Insira um novo objetivo").grid(row=len(obj_nome_response)+1, column=0)
+
+
+        self.entryObjetivo = Entry(self, fg="gray")
+        self.entryObjetivo.insert(0, "Digite um novo objetivo...")
+        self.entryObjetivo.bind("<FocusIn>", self.on_entry_click)
+        self.entryObjetivo.bind("<FocusOut>", self.on_focusout)
+        self.entryObjetivo.grid(row=len(obj_nome_response)+2, column=0, pady=10)
+
 
         self.botaoAdicionar = tk.Button(self, text="Adicionar", command=self.adicionarObjetivo)
-        self.botaoAdicionar.pack(pady=10)
+        self.botaoAdicionar.grid(row=len(obj_nome_response)+3, column=0, pady=10)
 
         self.transient(self.parent)
+        self.wait_visibility()
         self.grab_set()
         self.parent.wait_window(self)
+
+    def removerObjetivo(self, id):
+        self.remove_all_from_db(id)
+
+        self.parent.carregaObjetivos()
+        self.parent.atualizaObjetivos()
+        self.destroy()
 
     def adicionarObjetivo(self):
         novoObjetivo = self.entryObjetivo.get()
 
-        if novoObjetivo.replace(" ", "") == "":
+        if novoObjetivo.replace(" ", "") == "" or novoObjetivo == "Digite um novo objetivo...":
             show_custom_messagebox(self, "Erro", "Você precisa dar um nome ao objetivo")
             return
 
@@ -628,10 +572,34 @@ class JanelaAddObjetivo(tk.Toplevel):
             conn.close()
             self.parent.objetivos.append(novoObjetivo)
             self.parent.atualizaObjetivos()
-            default_values_column(id)
+            default_values_column(id)   
             self.destroy()
         except Exception as e:
             print(e)
+
+    def remove_all_from_db(self, id):
+        try:
+            conn = create_connection()
+            cursor = conn.cursor()
+            cursor.execute(f"DELETE FROM pesos WHERE id_objetivo_origem = {id}")
+            cursor.execute(f"DELETE FROM riscos WHERE id_objetivo_origem = {id}")
+            cursor.execute(f"DELETE FROM objetivos WHERE id = '{id}'")
+            cursor.execute(f"DELETE FROM impacto_probabilidade WHERE id_objetivo_origem = {id}")
+            conn.commit()
+            conn.close()
+        except Exception:
+            return
+        
+    def on_entry_click(self, event):
+        if self.entryObjetivo.get() == "Digite um novo objetivo...":
+            self.entryObjetivo.delete(0, "end") 
+            self.entryObjetivo.config(fg='black') 
+
+    def on_focusout(self, event):
+        if self.entryObjetivo.get() == "":
+            self.entryObjetivo.insert(0, "Digite um novo objetivo...")  
+            self.entryObjetivo.config(fg='gray') 
+
 
 class telaMatriz(tk.Tk):
     def __init__(self, objetivos_id):
@@ -663,6 +631,9 @@ class telaMatriz(tk.Tk):
         all_impact_table = convert_tuplelist_to_array(allinfo, 1)
         all_probability_table = convert_tuplelist_to_array(allinfo, 2)
 
+        cursor.execute(f"SELECT nome_objetivo FROM objetivos WHERE id = {self.objetivo_id}")
+        nome_obj = convert_to_str(cursor.fetchall())
+
         conn.close()
 
         # Cor padrão
@@ -683,7 +654,7 @@ class telaMatriz(tk.Tk):
         botao_home.pack(side=tk.LEFT)
 
         # Adicionando título "Gestão de Riscos" no frame
-        titulo = tk.Label(barra_superior, text="Gestão de Riscos", font=('Open Sans', 16), bg=verde_opet, fg='white')
+        titulo = tk.Label(barra_superior, text=f"Gestão de Riscos - {nome_obj}", font=('Open Sans', 16), bg=verde_opet, fg='white')
         titulo.pack(side=tk.LEFT, expand=True)  # Centraliza o título na barra
 
         # Container principal que vai dividir a tela em duas colunas
