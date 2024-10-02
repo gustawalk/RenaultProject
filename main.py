@@ -13,6 +13,9 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.backends._backend_tk import NavigationToolbar2Tk
 from functools import partial
 
+verde_opet = '#174311'
+laranja_opet = '#F24F13'
+
 def img2botao(imagem, canvas, comando, spacing=0):
         imagem = Image.open(f"images/{imagem}.png")
         imagem = imagem.resize((250, 45))
@@ -282,7 +285,10 @@ class JanelaProximaTela(tk.Toplevel):
         super().__init__(parent)
         self.resizable(False, False)
         self.title("Escolha sua ação")
-        self.geometry("400x300")
+        verde_opet = '#174311'
+        laranja_opet = '#F24F13'
+        self.config(bg=verde_opet)
+        self.geometry("350x250")
         self.parent = parent
 
         telas_disponiveis = ['AHP', 'Matriz de Risco']
@@ -293,7 +299,7 @@ class JanelaProximaTela(tk.Toplevel):
         self.lb_telas.select_set(0)
         self.lb_telas.pack()
 
-        Button(self, text="Confirmar", command=self.confirmar_tela).pack()
+        Button(self, text="Confirmar", command=self.confirmar_tela, bg=laranja_opet).pack()
 
         self.transient(self.parent)
         self.wait_visibility()
@@ -319,6 +325,11 @@ class JanelaAddRisco(tk.Toplevel):
         self.title("Adicionar Risco")
         self.parent = parent
 
+        verde_opet = '#174311'
+        laranja_opet = '#F24F13'
+
+        self.config(bg=verde_opet)
+
         conn = create_connection()
         cursor = conn.cursor()
         cursor.execute("SELECT * FROM objetivos")
@@ -340,11 +351,14 @@ class JanelaAddRisco(tk.Toplevel):
             objetivos_query = cursor.fetchall()
             conn.close()
 
+            verde_opet = '#174311'
+            laranja_opet = '#F24F13'
+
             objetivos_array = [list(item) for item in objetivos_query]
             nomes_objetivos = [risco[0] for risco in objetivos_array]
 
             lista_objetivos = nomes_objetivos
-            Label(self, text="Objetivos").pack(padx=100)
+            Label(self, text="Objetivos", bg=verde_opet).pack(padx=100)
             self.lb_objetivos = Listbox(self, selectmode=tk.BROWSE, exportselection=False)
             for objetivo in lista_objetivos:
                 self.lb_objetivos.insert(END, objetivo)
@@ -354,7 +368,7 @@ class JanelaAddRisco(tk.Toplevel):
 
             self.atualiza_altura_listbox(self.lb_objetivos)
 
-            Label(self, text="Riscos").pack()
+            Label(self, text="Riscos", bg=verde_opet).pack()
             self.lb_riscos = Listbox(self, selectmode=tk.BROWSE, exportselection=False)
             self.update_risks(self.lb_objetivos.get(ACTIVE))
 
@@ -364,7 +378,7 @@ class JanelaAddRisco(tk.Toplevel):
             self.entryRisco.bind("<FocusOut>", self.on_focusout)
             self.entryRisco.pack(pady=5)
 
-            self.botaoAdicionarRisco = tk.Button(self, text="Adicionar/Remover", command=self.adicionarRisco)
+            self.botaoAdicionarRisco = tk.Button(self, text="Adicionar/Remover", command=self.adicionarRisco, bg=laranja_opet)
             self.botaoAdicionarRisco.pack(pady=10)
         else:
             self.geometry("300x100")
@@ -491,6 +505,8 @@ class JanelaAddObjetivo(tk.Toplevel):
 
         verde_opet = '#174311'
         laranja_opet = '#F24F13'
+
+        self.config(bg=verde_opet)
         # parte dos objetivos
 
         conn = create_connection()
@@ -502,13 +518,11 @@ class JanelaAddObjetivo(tk.Toplevel):
         obj_id_response = convert_tuplelist_to_array(obj_response, 0)
         obj_nome_response = convert_tuplelist_to_array(obj_response, 1)
 
-        Label(self, text="Remova um objetivo").grid(row=0, column=0)
-
         for i, obj in enumerate(obj_nome_response, start=1):
-            Label(self, text=obj).grid(row=i, column=0)
-            Button(self, text="X", command=partial(self.removerObjetivo, obj_id_response[i-1])).grid(row=i, column=1)
-
-        Label(self, text="Insira um novo objetivo").grid(row=len(obj_nome_response)+1, column=0)
+            frame = Frame(self, bg='white', bd=1, relief='solid')
+            frame.grid(row=i, column=0, padx=4, pady=5, sticky='ew')
+            Label(frame, text=obj, font='green', bg='white').pack(side='left', padx=5)
+            Button(frame, text="X", command=partial(self.removerObjetivo, obj_id_response[i-1]), bg=laranja_opet).pack(side='right', padx=4)
 
 
         self.entryObjetivo = Entry(self, fg="gray")
@@ -518,7 +532,7 @@ class JanelaAddObjetivo(tk.Toplevel):
         self.entryObjetivo.grid(row=len(obj_nome_response)+2, column=0, pady=10)
 
 
-        self.botaoAdicionar = tk.Button(self, text="Adicionar", command=self.adicionarObjetivo)
+        self.botaoAdicionar = tk.Button(self, text="Adicionar", command=self.adicionarObjetivo, bg=laranja_opet)
         self.botaoAdicionar.grid(row=len(obj_nome_response)+3, column=0, pady=10)
 
         self.transient(self.parent)
@@ -835,7 +849,7 @@ class telaPeso(tk.Tk):
 
         self.total_pages = len(objetivos)
         self.page =  1
-        self.current_page = 0
+        self.current_page = 1
 
         self.page_frame = tk.Frame(self)
         self.page_frame.pack(fill=tk.BOTH, expand=True)
@@ -865,7 +879,7 @@ class telaPeso(tk.Tk):
 
         conn = create_connection()
         cursor = conn.cursor()
-        cursor.execute(f"SELECT nome_objetivo FROM objetivos WHERE id = {self.objetivos_id[self.current_page]}")
+        cursor.execute(f"SELECT nome_objetivo FROM objetivos WHERE id = {self.objetivos_id[self.current_page-1]}")
         nome_obj = convert_to_str(cursor.fetchall())
         conn.close()
 
@@ -890,7 +904,7 @@ class telaPeso(tk.Tk):
         aside_title.pack(pady=10)
         # Texto explicativo sobre Impacto
         impacto_label = tk.Label(card_frame, 
-                                text="1→ Igual importância \n3→ Pouco\n mais importante \n5→ Muito\n mais importante \n7→ Bastante\n mais importante \n9→ Extremamente \nmais importante", 
+                                text="1→ Igual importância \n3→ Pouco\n mais importante \n5→ Muito\n mais importante \n7→ Bastante\n mais importante \n9→ Extremamente \n mais importante", 
                                 font=('Open Sans', 9), 
                                 bg=verde_opet, 
                                 fg='white',
@@ -1011,15 +1025,15 @@ class telaPeso(tk.Tk):
             self.entries[combinacao] = entry
             i += 1
 
-        if self.current_page > 0:
+        if self.current_page > 1:
             botao_previous = tk.Button(aside_frame, text="PREVIOUS", font=('Open Sans', 12), bg=laranja_opet, fg='white', command=self.change_pages_previous, width=20)
             botao_previous.pack(pady=10)
 
-        if self.current_page < len(self.objetivos_id)-1:
+        if self.current_page < len(self.objetivos_id):
             botao_next = tk.Button(aside_frame, text="NEXT", font=('Open Sans', 12), bg=laranja_opet, fg='white', command=self.change_pages_next, width=20)
             botao_next.pack(pady=10)
 
-        if self.current_page == len(self.objetivos_id)-1:
+        if self.current_page == len(self.objetivos_id):
             botao_gerar = tk.Button(aside_frame, text="GERAR MATRIZ", font=('Open Sans', 12), bg=laranja_opet, fg='white', command=self.finish_settings, width=20)
             botao_gerar.pack(pady=10)
 
@@ -1109,10 +1123,6 @@ class MatrizMontada(tk.Tk):
         self.resizable(False, False)
         self.title("Matriz")
 
-        # Cor padrão
-        self.verde_opet = '#174311'
-        self.laranja_opet = '#F24F13'
-
         self.id_objetivos = objetivos
         self.id_objetivo = self.id_objetivos[0]
 
@@ -1120,7 +1130,7 @@ class MatrizMontada(tk.Tk):
 
     def show_matrix(self, id_obj):
         # Adicionando um frame para a barra superior
-        barra_superior = tk.Frame(self, bg=self.verde_opet, padx=15, pady=15)  # Adicionando padding
+        barra_superior = tk.Frame(self, bg=verde_opet, padx=15, pady=15)  # Adicionando padding
         barra_superior.pack(side=tk.TOP, fill=tk.X)
 
         # Configura o fechamento correto do programa
@@ -1183,10 +1193,12 @@ class MatrizMontada(tk.Tk):
         ax.set_yticklabels([1, 2, 3, 4, 5])
 
         # Botão de voltar
-        homeButton = tk.Button(barra_superior, text="🏠", bg=self.laranja_opet, command=self.back_home)
+        homeButton = tk.Button(barra_superior, text="🏠", bg=laranja_opet, command=self.back_home)
         homeButton.pack(side="left")
 
-        titulo = tk.Label(barra_superior, text='Matriz de Risco - ' + str(convert_to_str(nome_obj)), font=('Open Sans', 16), bg=self.verde_opet, fg='white')
+        
+
+        titulo = tk.Label(barra_superior, text='Matriz de Risco - ' + str(convert_to_str(nome_obj)), font=('Open Sans', 16), bg=verde_opet, fg='white')
         titulo.pack(side=tk.LEFT, expand=True)  # Centraliza o título na barra
         plt.xlabel('Impacto')
         plt.ylabel('Probabilidade')
@@ -1195,9 +1207,11 @@ class MatrizMontada(tk.Tk):
         canvas.get_tk_widget().pack()
 
         for i in range(len(self.id_objetivos)):
-            button = tk.Button(self, width=20, height=2, text=objetivos[i][0], bg=self.laranja_opet, fg='black',
+            button = tk.Button(self, width=20, height=2, text=objetivos[i][0], bg=laranja_opet, fg='black',
                                command=lambda id=self.id_objetivos[i]: self.change_matrix(id))
             button.pack(side="left", padx=5, pady=5)
+
+        Text()
 
     def change_matrix(self, id):
         plt.close()
@@ -1223,6 +1237,7 @@ class AhpMontado(tk.Tk):
         super().__init__()
         self.resizable(False, False)
         self.title("AHP")
+        #self.geometry("800x600")
         self.objetivos = objetivos
         self.id_objetivo = objetivos[0]
 
@@ -1238,10 +1253,13 @@ class AhpMontado(tk.Tk):
         self.objetivos_response = cursor.fetchall()
         cursor.close()
 
+        self.array_nomes = convert_tuplelist_to_array(self.objetivos_response)
+
         self.show_page(self.id_objetivo)
 
     # Função para criar o gráfico de radar
     def criar_grafico_radar(self, valores, categorias, objetivo):
+
         # Número de categorias
         N = len(categorias)
 
@@ -1266,8 +1284,15 @@ class AhpMontado(tk.Tk):
         # Ajustar o espaçamento dos rótulos
         ax.set_xticklabels(categorias, fontsize=12, fontweight='bold', ha='center', rotation=45)
 
-        # Adicionar título
-        plt.title(objetivo, size=15, color='black', y=1.1)
+        barra_superior = tk.Frame(self, bg=verde_opet, padx=15, pady=15)  # Adicionando padding
+        barra_superior.pack(side=tk.TOP, fill=tk.X)
+
+        homeButton = tk.Button(barra_superior, text="🏠", bg=laranja_opet, command=self.back_home)
+        homeButton.pack(side=tk.LEFT)
+
+        titulo = tk.Label(barra_superior, text='AHP - ' + str(objetivo), font=('Open Sans', 16), bg=verde_opet, fg='white')
+        titulo.pack(side=tk.RIGHT, expand=True)
+
 
         # Melhorar estética com grid de fundo
         ax.spines['polar'].set_visible(False)
@@ -1276,8 +1301,12 @@ class AhpMontado(tk.Tk):
         # Ajustar layout para melhor responsividade
         plt.tight_layout()
 
-        canvas = FigureCanvasTkAgg(fig, master=self)
+        frame = tk.Frame(self)
+        frame.pack(expand=True)
+
+        canvas = FigureCanvasTkAgg(fig, master=frame)
         canvas.get_tk_widget().pack()
+        canvas.draw()
 
     def show_page(self, id):
 
@@ -1316,7 +1345,13 @@ class AhpMontado(tk.Tk):
         self.criar_grafico_radar(peso, riscos, objetivo)
 
         for i in range(len(self.objetivos)):
-            Button(self, text=self.objetivos_response[i][0], command=partial(self.change_ahp, self.objetivos[i])).pack(side=tk.LEFT)
+            button = tk.Button(self, width=20, height=2, text=self.array_nomes[i], bg=laranja_opet, fg='black',
+                               command=lambda id=self.objetivos[i]: self.change_ahp(id))
+            button.pack(side="left", padx=5, pady=5)
+
+    def back_home(self):
+        self.destroy()
+        telaObjetivos()
 
     def change_ahp(self, id):
         plt.close()
