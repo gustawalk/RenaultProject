@@ -834,8 +834,8 @@ class telaPeso(tk.Tk):
         self.objetivos_id = objetivos
 
         self.total_pages = len(objetivos)
-        self.page = 1
-        self.current_page = 1
+        self.page =  1
+        self.current_page = 0
 
         self.page_frame = tk.Frame(self)
         self.page_frame.pack(fill=tk.BOTH, expand=True)
@@ -844,12 +844,104 @@ class telaPeso(tk.Tk):
 
     def show_page(self, page):
         # Limpar o conteúdo da página anterior
-        for widget in self.page_frame.winfo_children():
+        for widget in self.winfo_children():
             widget.destroy()
+
+        # Adicionando um frame para a barra superior
+        verde_opet = '#174311'
+        laranja_opet = '#F24F13'
+
+        barra_superior = tk.Frame(self, bg=verde_opet, padx=15, pady=15)
+        barra_superior.pack(side=tk.TOP, fill=tk.X)
+
+        # Adicionando botão de voltar (seta)
+        homeButton = Image.open("images/homeicon.png")
+        homeButton = homeButton.resize((20, 20), Image.Resampling.LANCZOS)
+
+        homeButtonTk = ImageTk.PhotoImage(homeButton)
+        botao_home = tk.Button(barra_superior, image=homeButtonTk, bg=verde_opet, borderwidth=0, command=self.back_home)
+        botao_home.image = homeButtonTk  # Manter referência
+        botao_home.pack(side=tk.LEFT)
 
         conn = create_connection()
         cursor = conn.cursor()
-        cursor.execute(f"SELECT * FROM riscos WHERE id_objetivo_origem = {self.objetivos_id[page - 1]}")
+        cursor.execute(f"SELECT nome_objetivo FROM objetivos WHERE id = {self.objetivos_id[self.current_page]}")
+        nome_obj = convert_to_str(cursor.fetchall())
+        conn.close()
+
+        # Adicionando título "Gestão de Riscos" no frame
+        titulo = tk.Label(barra_superior, text=f"Gestão de Riscos - {nome_obj}", font=('Open Sans', 16), bg=verde_opet, fg='white')
+        titulo.pack(side=tk.LEFT, expand=True)
+        
+        # Container principal que vai dividir a tela em duas colunas
+        container_principal = tk.Frame(self)
+        container_principal.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
+
+        # Configurando a barra lateral (aside) com os valores de Impacto e Probabilidade
+        aside_frame = tk.Frame(container_principal, bg='white')
+        aside_frame.pack(side=tk.RIGHT, fill=tk.Y)
+
+        # Configurando o frame do card
+        card_frame = tk.Frame(aside_frame, bg=verde_opet, padx=20, pady=10)
+        card_frame.pack(padx=10, pady=10, fill=tk.Y)
+
+        # Título do Aside
+        aside_title = tk.Label(card_frame, text="VALORES", font=('Open Sans', 12), bg=verde_opet, fg='white')
+        aside_title.pack(pady=10)
+        # Texto explicativo sobre Impacto
+        impacto_label = tk.Label(card_frame, 
+                                text="1→ Igual importância \n3→ Pouco\n mais importante \n5→ Muito\n mais importante \n7→ Bastante\n mais importante \n9→ Extremamente \nmais importante", 
+                                font=('Open Sans', 9), 
+                                bg=verde_opet, 
+                                fg='white',
+                                anchor='w',  # Alinha à esquerda
+                                justify='left',
+                                width=20)  # Define uma largura fixa
+        impacto_label.pack(pady=10)
+
+        # Texto explicativo sobre Probabilidade
+        prob_label = tk.Label(card_frame, 
+                            text="Valores intermediários\n 2, 4, 6, 8",
+                            font=('Open Sans', 9), 
+                            bg=verde_opet, 
+                            fg='white',
+                            anchor='w',  # Alinha à esquerda
+                            justify='left', width=20)  # Define uma largura fixa
+        prob_label.pack(pady=10)
+
+        # Frame principal para a tabela de comparação de riscos (lado esquerdo)
+        main_frame = tk.Frame(container_principal, bg='white')
+        main_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=(20, 0), pady=20)
+
+        # Container para a tabela com rolagem
+        canvas = Canvas(main_frame, bg='white')
+        scrollbar = Scrollbar(main_frame, orient="vertical", command=canvas.yview)
+        scrollable_frame = tk.Frame(canvas, bg='white')
+
+        # Configurando o scrollable frame
+        scrollable_frame.bind(
+            "<Configure>",
+            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+        )
+
+        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+
+        # Adicionando a barra de rolagem
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+        # Adicionando cabeçalho
+        header = tk.Frame(scrollable_frame, bg='white')
+        header.pack(fill=tk.X)
+
+        tk.Label(header, text="Risco", bg='white', font=('Open Sans', 12), width=20).pack(side=tk.LEFT, pady=5)
+        tk.Label(header, text="Nível", bg='white', font=('Open Sans', 12), width=20).pack(side=tk.LEFT, pady=5)
+        tk.Label(header, text="Risco", bg='white', font=('Open Sans', 12), width=20).pack(side=tk.LEFT, pady=5)
+
+        conn = create_connection()
+        cursor = conn.cursor()
+        cursor.execute(f"SELECT * FROM riscos WHERE id_objetivo_origem = {self.objetivos_id[page-1]}")
         all_risks = cursor.fetchall()
         conn.close()
 
@@ -857,14 +949,6 @@ class telaPeso(tk.Tk):
         nomes_riscos_array = [risco[1] for risco in risks_array]
 
         nomes_riscos_array.sort()
-
-        conn = create_connection()
-        cursor = conn.cursor()
-        cursor.execute(f"SELECT nome_objetivo FROM objetivos WHERE id = {self.objetivos_id[page-1]}")
-        nome_obj = cursor.fetchall()
-        conn.close()
-
-        Label(self.page_frame, text=convert_to_str(nome_obj), font=("Arial", 24), wraplength=250).place(x=self.window_width/2 - 370, y=10)
 
         combinacoes = []
         comb_inversa = []
@@ -903,7 +987,7 @@ class telaPeso(tk.Tk):
 
             risco1, risco2 = combinacao.split('X')
 
-            lim = 12
+            lim = 18
 
             if len(risco1) >= lim:
                 risco1 = risco1[:lim]
@@ -913,32 +997,31 @@ class telaPeso(tk.Tk):
                 risco2 = risco2[:lim]
                 risco2+="..."
 
-            tk.Label(self.page_frame, text=risco1).place(x=self.window_width/2 - 100, y=10 + (i * 50))
+            risk_frame = tk.Frame(scrollable_frame, bg='white')
+            risk_frame.pack(fill=tk.X, pady=5)
 
-            entry = tk.Entry(self.page_frame, width=3)
-            entry.place(x=self.window_width/2, y=10 + (i * 50))
+            tk.Label(risk_frame, text=risco1, bg='white', width=20).pack(side=tk.LEFT, padx=25)
+
+            entry = tk.Entry(risk_frame, width=20)
+            entry.pack(side=tk.LEFT, padx=25)
             entry.insert(0, str(peso))
 
-            tk.Label(self.page_frame, text=risco2).place(x=self.window_width/2 + 100, y=10 + (i * 50))
+            tk.Label(risk_frame, text=risco2, bg='white', width=20).pack(side=tk.LEFT, padx=25)
 
             self.entries[combinacao] = entry
             i += 1
 
-        if self.current_page <= self.total_pages:
-            if self.total_pages != 1:
-                self.next_button = tk.Button(self.page_frame, text="Next", command=self.change_pages_next)
-                self.next_button.place(x=self.window_width-300, y=self.window_height-100)
-            self.home_button = tk.Button(self.page_frame, text="Home", command=self.back_to_home)
-            self.home_button.place(x=250, y=self.window_height-100)
-        if self.current_page > 1:
-            self.back_button = tk.Button(self.page_frame, text="Previous", command=self.change_pages_previous)
-            self.back_button.place(x=250, y=self.window_height-100)
-        if self.current_page == self.total_pages:
-            self.compute_button = tk.Button(self.page_frame, text="Finish", command=self.finish_settings)
-            self.compute_button.place(x=self.window_width-300, y=self.window_height-100)
+        if self.current_page > 0:
+            botao_previous = tk.Button(aside_frame, text="PREVIOUS", font=('Open Sans', 12), bg=laranja_opet, fg='white', command=self.change_pages_previous, width=20)
+            botao_previous.pack(pady=10)
 
-        self.peso_info = tk.Button(self.page_frame, text="Help", command=self.show_help_info)
-        self.peso_info.place(x=self.window_width/2 - 10, y=self.window_height - 100)
+        if self.current_page < len(self.objetivos_id)-1:
+            botao_next = tk.Button(aside_frame, text="NEXT", font=('Open Sans', 12), bg=laranja_opet, fg='white', command=self.change_pages_next, width=20)
+            botao_next.pack(pady=10)
+
+        if self.current_page == len(self.objetivos_id)-1:
+            botao_gerar = tk.Button(aside_frame, text="GERAR MATRIZ", font=('Open Sans', 12), bg=laranja_opet, fg='white', command=self.finish_settings, width=20)
+            botao_gerar.pack(pady=10)
 
     def back_to_home(self):
         self.destroy()
@@ -965,31 +1048,10 @@ class telaPeso(tk.Tk):
                 messagebox.showwarning("showwarning", "Dados incorretos")
                 return
 
-        if self.current_page > 1:
+        if self.current_page > 0:
             self.update_database()
             self.current_page -= 1
             self.show_page(self.current_page)
-
-    def show_help_info(self):
-        help_window = tk.Toplevel(self)
-        help_window.title("Informações de valores")
-        help_window.geometry("400x200")
-        help_window.resizable(False, False)
-        text_widget = tk.Text(help_window, wrap=tk.WORD, padx=10, pady=10)
-        text_widget.insert(tk.END,
-        """
-        1 → Igual importância
-        3 → Pouco mais importante
-        5 → Muito mais importante
-        7 → Bastante mais importante
-        9 → Extremamente mais importante
-        2, 4, 6, 8 → Valores intermediários
-        """)
-        text_widget.configure(state='disabled')
-        text_widget.pack(expand=True, fill=tk.BOTH)
-
-        close_button = tk.Button(help_window, text="Fechar", command=help_window.destroy)
-        close_button.pack(pady=10)
 
     def get_entries_values(self):
         valores = {}
@@ -1020,6 +1082,10 @@ class telaPeso(tk.Tk):
     def check_values(self, value):
         range_aceito = [1, 2, 3, 4, 5, 6, 7, 8, 9]
         return value in range_aceito
+
+    def back_home(self):
+        self.destroy()
+        telaObjetivos()
 
     def finish_settings(self):
         dados = self.get_entries_values()
