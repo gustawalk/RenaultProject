@@ -1211,8 +1211,6 @@ class MatrizMontada(tk.Tk):
                                command=lambda id=self.id_objetivos[i]: self.change_matrix(id))
             button.pack(side="left", padx=5, pady=5)
 
-        Text()
-
     def change_matrix(self, id):
         plt.close()
         self.clear_window()
@@ -1230,7 +1228,7 @@ class MatrizMontada(tk.Tk):
     def back_home(self):
         plt.close()
         self.destroy()
-        telaObjetivos()  # Ce
+        telaObjetivos() 
 
 class AhpMontado(tk.Tk):
     def __init__(self, objetivos):
